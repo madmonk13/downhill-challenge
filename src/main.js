@@ -10,6 +10,7 @@ import { Mountains, Clouds, Spray } from './scenery.js';
 import { Environment } from './environment.js';
 import { CoinFx, HazardFx } from './effects.js';
 import { Sfx } from './audio.js';
+import { Tricks, TRICK_KEYS, TAP_MS } from './tricks.js';
 
 const STEP = 1 / 120;
 const UP = new THREE.Vector3(0, 1, 0);
@@ -17,10 +18,11 @@ const START_Z = -4; // the skier waits in the start gate here
 const PUSH_OFF = 5; // m/s out of the gate
 const COUNT_STEP = 0.6; // seconds per countdown beat
 const CRASH_TIME = 2.2; // seconds to watch the wipeout before the results
-const COIN_POINTS = 5;
+const COIN_POINTS = 10;
 const CHASM_POINTS = 50;
 const CRASH_TEXT = {
   tree: 'Timber!', igloo: 'Wipeout!', bear: 'Wipeout!', snowman: 'Wipeout!', penguin: 'Sorry!', chasm: 'Into the chasm!',
+  trick: 'Bad landing!', snowball: 'Flattened!',
 };
 
 // ---------- renderer & scene ----------
@@ -113,7 +115,9 @@ function placeBanners() {
 let save = loadSave();
 let terrain = null;
 const body = new SkierBody();
+const tricks = new Tricks();
 const skier = buildSkier();
+skier.setColors(save.colors);
 scene.add(skier.group);
 
 const input = new Input(canvas);
@@ -130,9 +134,16 @@ let crashTimer = 0;
 const ui = new UI({
   play: () => startCourse(),
   endRun: () => (mode === 'run' || mode === 'crash') && endRun(),
+  colors: (colors) => {
+    skier.setColors(colors);
+    writeSave(save);
+  },
   reset: () => {
+    const colors = save.colors; // resetting scores keeps the penguin's look
     clearSave();
     save = defaultSave();
+    save.colors = colors;
+    writeSave(save);
     newCourse();
     ui.showMenu(save);
   },
@@ -153,7 +164,8 @@ function newCourse() {
 
 function startCourse() {
   newCourse();
-  run = { coins: 0, air: 0, chasms: 0, maxZ: 0, still: 0, stagnant: 0, time: 0, score: 0 };
+  run = { coins: 0, air: 0, tricks: 0, chasms: 0, maxZ: 0, still: 0, stagnant: 0, time: 0, score: 0 };
+  tricks.reset();
   accumulator = 0;
   steerSmooth = 0;
   countdown = 0;
@@ -172,7 +184,7 @@ function go() {
 }
 
 function score(r) {
-  return Math.floor(Math.max(0, r.maxZ)) + r.coins * COIN_POINTS + r.air + r.chasms * CHASM_POINTS;
+  return Math.floor(Math.max(0, r.maxZ)) + r.coins * COIN_POINTS + r.air + r.tricks + r.chasms * CHASM_POINTS;
 }
 
 function endRun() {
@@ -186,7 +198,7 @@ function endRun() {
   writeSave(save);
   sfx.runEnd(newBest);
   ui.showResults({
-    distance, coins: run.coins, coinPoints: run.coins * COIN_POINTS, air: run.air,
+    distance, coins: run.coins, coinValue: COIN_POINTS, coinPoints: run.coins * COIN_POINTS, air: run.air, tricks: run.tricks,
     chasms: run.chasms, chasmPoints: run.chasms * CHASM_POINTS, total, newBest,
     crash: body.crashed?.kind ?? null,
   }, save);
@@ -209,9 +221,27 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('button') && e.target.closest('.overlay')) sfx.click();
 });
 
+// Tricks are edge-triggered (a fresh press or swipe while airborne), so a key already held at
+// take-off, like the tuck, never starts one by accident.
+function requestTrick(dir) {
+  if (mode === 'run' && body.airborne && !body.crashed) tricks.request(dir);
+}
+input.onSwipe = requestTrick;
+
+// The arrow keys double as steering (←/→) and tuck (↓), so a trick is a quick tap, pressed while in
+// the air and released within TAP_MS; holding the key just steers or tucks instead.
+const trickPressedInAir = new Set();
+input.onKeyUp = (code, heldMs) => {
+  if (trickPressedInAir.delete(code) && heldMs <= TAP_MS) requestTrick(TRICK_KEYS[code]);
+};
+
 input.onKeyDown = (code) => {
   if (code === 'KeyM') return toggleMute();
-  if ((mode === 'menu' || mode === 'results') && (code === 'Enter' || code === 'Space')) startCourse();
+  if (TRICK_KEYS[code]) {
+    if (mode === 'run' && body.airborne && !body.crashed) trickPressedInAir.add(code);
+    return;
+  }
+  if ((mode === 'menu' || mode === 'results') && !ui.prefsOpen && !ui.helpOpen && (code === 'Enter' || code === 'Space')) startCourse();
 };
 
 // ---------- per-mode updates ----------
@@ -232,10 +262,12 @@ function updateRun(dt) {
   const target = mode === 'run' ? input.steer() : 0;
   steerSmooth += (target - steerSmooth) * Math.min(1, dt * 10);
   const ctl = { steer: steerSmooth, tuck: mode === 'run' && input.tuck() };
+  input.armSwipes(mode === 'run' && body.airborne && !body.crashed);
   accumulator += dt;
   while (accumulator >= STEP) {
     body.step(STEP, ctl, terrain);
     accumulator -= STEP;
+    if (mode === 'run' && !body.crashed) updateTricks();
     if (body.landing && !body.crashed) onLanding(body.landing);
   }
   if (body.padHits) {
@@ -257,6 +289,13 @@ function updateRun(dt) {
     shake = Math.max(shake, 0.55);
   }
   body.obstacleHits.length = 0;
+  for (const hit of body.snowballHits) {
+    hazardFx.snowball(hit);
+    sfx.thud('snow', 1);
+    sfx.smash(hit.vel.length());
+    shake = Math.max(shake, 0.7);
+  }
+  body.snowballHits.length = 0;
   for (const hit of body.penguinHits) {
     sfx.squawk(true);
     hazardFx.knock(hit);
@@ -295,9 +334,29 @@ function updateRun(dt) {
   if (!body.crashed) spray.emit(body, dt);
 }
 
+function onTrick({ name, points, count }) {
+  run.tricks += points;
+  sfx.chime();
+  ui.toast(count > 1 ? `${name} ×${count}! +${points}` : `${name}! +${points}`);
+}
+
+// Advance the trick in progress; touching down before it's done is a crash.
+function updateTricks() {
+  const done = tricks.update(STEP);
+  if (done) onTrick(done);
+  if (!body.touchdown) return;
+  const landed = tricks.land();
+  if (landed.finished) onTrick(landed.finished);
+  if (landed.crashed) {
+    body.crash('trick');
+    shake = Math.max(shake, 0.6);
+  }
+}
+
 function startCrash() {
   mode = 'crash';
   crashTimer = 0;
+  tricks.cancel();
   crashCam.copy(camPos);
   const kind = body.crashed.kind;
   if (kind === 'chasm') sfx.fall();
@@ -391,6 +450,9 @@ function updateSkierVisual(dt, snap = false) {
     tucked: mode === 'run' && body.tucked,
     crashed: !!body.crashed,
     speed: body.speed,
+    trick: mode === 'run' && tricks.active
+      ? { axis: tricks.current.axis, sign: tricks.current.sign, progress: tricks.progress }
+      : null,
   });
 }
 
@@ -400,10 +462,19 @@ const camTarget = new THREE.Vector3();
 const lookTarget = new THREE.Vector3();
 const crashCam = new THREE.Vector3();
 
+let prefsShift = 0; // 0..1: how far the picture is nudged aside to clear the preferences panel
+
 function updateCamera(dt, snap = false) {
   const p = body.pos;
   const fx = Math.sin(body.facing), fz = Math.cos(body.facing);
-  if (mode === 'crash') {
+  if (mode === 'menu' && ui.prefsOpen) {
+    // close-up, circling the penguin so every colour can be seen
+    const a = time * 0.6;
+    camTarget.set(p.x + Math.sin(a) * 4, p.y + 1.4, p.z + Math.cos(a) * 4);
+    const gh = terrain.height(camTarget.x, camTarget.z) + 1;
+    if (camTarget.y < gh) camTarget.y = gh;
+    lookTarget.set(p.x, p.y + 0.8, p.z);
+  } else if (mode === 'crash') {
     // stop where we were and watch the wipeout
     camTarget.copy(crashCam);
     lookTarget.set(p.x, p.y + 0.6, p.z);
@@ -462,6 +533,17 @@ function updateCamera(dt, snap = false) {
     camera.updateProjectionMatrix();
   }
 
+  // slide the picture clear of the preferences panel (right of it in landscape, below it in portrait)
+  const want = mode === 'menu' && ui.prefsOpen ? 1 : 0;
+  const shift = snap ? want : prefsShift + (want - prefsShift) * Math.min(1, dt * 6);
+  if (Math.abs(shift - prefsShift) > 1e-3 || (snap && shift !== prefsShift)) {
+    prefsShift = shift;
+    const w = window.innerWidth, h = window.innerHeight;
+    if (prefsShift < 1e-3) camera.clearViewOffset();
+    else if (w >= h) camera.setViewOffset(w, h, -prefsShift * w * 0.2, 0, w, h);
+    else camera.setViewOffset(w, h, 0, -prefsShift * h * 0.25, w, h);
+  }
+
   sun.position.copy(p).addScaledVector(env.lightDir, SUN_DIST);
   sun.target.position.copy(p);
   mountains.follow(camera);
@@ -479,7 +561,10 @@ window.addEventListener('resize', resize);
 resize();
 
 let last = performance.now();
+const IDLE_FRAME_MS = 30; // the menu and results only need ~30fps behind the overlay
 function frame(now) {
+  requestAnimationFrame(frame);
+  if ((mode === 'menu' || mode === 'results') && now - last < IDLE_FRAME_MS) return;
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   time += dt;
@@ -499,7 +584,6 @@ function frame(now) {
   updateSkierVisual(dt);
   updateCamera(dt);
   renderer.render(scene, camera);
-  requestAnimationFrame(frame);
 }
 
 // load the igloo model before building the first course; without it a plain dome stands in

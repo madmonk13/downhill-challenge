@@ -189,8 +189,8 @@ html, body {
   justify-content: center;
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
     max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: rgba(185, 226, 255, 0.35);
-  backdrop-filter: blur(2px);
+  /* no backdrop-filter: re-blurring the live WebGL canvas every frame is very costly */
+  background: rgba(185, 226, 255, 0.45);
   overflow-y: auto;
 }
 .card {
@@ -269,6 +269,38 @@ h2 { margin: 0; font-size: 26px; }
   display: grid;
   gap: 4px;
 }
+
+/* ---------- Preferences ---------- */
+/* The penguin turns in the scene behind this panel, so keep it out of the way: along the top
+   in portrait, down the left side in landscape, and let the page behind show through. */
+.overlay.prefs {
+  align-items: flex-start;
+  background: none;
+}
+@media (min-aspect-ratio: 1/1) {
+  .overlay.prefs { align-items: center; justify-content: flex-start; }
+}
+.overlay.prefs .card { margin: 0; gap: 10px; padding: 18px 20px; }
+.pref { text-align: left; }
+.pref-label { font-weight: 600; margin-bottom: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--line), 0 1px 3px rgba(18, 48, 74, 0.25);
+  cursor: pointer;
+}
+.swatch.selected { box-shadow: 0 0 0 3px var(--ink); }
+.swatch.custom {
+  overflow: hidden;
+  background: conic-gradient(#e84a3a, #f5c518, #2fb36b, #1fb5b5, #2f7fd4, #8a5cd0, #e84a3a);
+}
+.swatch.custom.selected { box-shadow: 0 0 0 3px var(--ink); }
+.swatch.custom input { position: absolute; inset: -6px; width: 44px; height: 44px; opacity: 0; cursor: pointer; }
 
 .badge {
   align-self: center;

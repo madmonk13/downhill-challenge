@@ -7,14 +7,26 @@ function sphere(r, material, ws = 8, hs = 6) {
   return new THREE.Mesh(new THREE.SphereGeometry(r, ws, hs), material);
 }
 
+const TRICK_PIVOT = 0.7; // height of the body's centre above the snow, which flips and spins turn about
+const UPRIGHT = new THREE.Quaternion();
+const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0) };
+
 export function buildSkier() {
   const group = new THREE.Group();
+  // everything that rotates in a trick hangs off this pivot at the body's centre
+  const acro = new THREE.Group();
+  acro.position.y = TRICK_PIVOT;
+  group.add(acro);
+  const body = new THREE.Group();
+  body.position.y = -TRICK_PIVOT;
+  acro.add(body);
   // smooth-shaded so the penguin reads soft against the faceted world
   const smooth = (color, shininess = 12) => new THREE.MeshPhongMaterial({ color, shininess, specular: 0x222222 });
   const black = smooth(0x23262e, 30);
   const white = smooth(0xf7f7f2, 6);
   const orange = smooth(0xff9a2e, 20);
-  const red = smooth(0xe84a3a, 4);
+  const hatMat = smooth(0xe84a3a, 4);
+  const scarfMat = smooth(0xe84a3a, 4);
   const skiMat = smooth(0x2f7fd4, 60);
   const metal = smooth(0xc4ccd6, 60);
   const dark = smooth(0x1d2533, 10);
@@ -34,14 +46,14 @@ export function buildSkier() {
     binding.position.set(0, 0.06, -0.08);
     ski.add(plank, tip, binding);
     ski.userData.side = side;
-    group.add(ski);
+    body.add(ski);
     skis.push(ski);
   }
 
   // ---- penguin: pivots at the boots, so leaning and tucking fold the whole body ----
   const rider = new THREE.Group();
   rider.position.y = 0.08;
-  group.add(rider);
+  body.add(rider);
   const legs = [];
   for (const side of [-1, 1]) {
     const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.075, 0.16, 6, 12), black);
@@ -79,7 +91,7 @@ export function buildSkier() {
   strap.rotation.x = Math.PI / 2 - 0.12;
   strap.position.y = 1.13;
   penguin.add(strap);
-  const lensMat = new THREE.MeshPhongMaterial({ color: 0xffa726, shininess: 120, specular: 0xffffff, emissive: 0x4a2200 });
+  const lensMat = new THREE.MeshPhongMaterial({ color: 0x2f8fff, shininess: 120, specular: 0xffffff, emissive: 0x0a2a55 });
   for (const side of [-1, 1]) {
     const lens = sphere(0.085, lensMat, 16, 12);
     lens.scale.set(1, 0.75, 0.45);
@@ -93,7 +105,7 @@ export function buildSkier() {
   }
 
   // bobble hat
-  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.315, S, S / 2, 0, Math.PI * 2, 0, Math.PI * 0.42), red);
+  const hat = new THREE.Mesh(new THREE.SphereGeometry(0.315, S, S / 2, 0, Math.PI * 2, 0, Math.PI * 0.42), hatMat);
   hat.position.y = 1.12;
   hat.rotation.x = -0.15;
   const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.255, 0.05, 8, 28), white);
@@ -103,10 +115,10 @@ export function buildSkier() {
   bobble.position.set(0, 1.44, -0.05);
   penguin.add(hat, cuff, bobble);
 
-  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.065, 12, 28), red);
+  const scarf = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.065, 12, 28), scarfMat);
   scarf.rotation.x = Math.PI / 2;
   scarf.position.y = 0.84;
-  const scarfTail = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.32, 6, 12), red);
+  const scarfTail = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.32, 6, 12), scarfMat);
   scarfTail.geometry.rotateX(Math.PI / 2).translate(0, 0, -0.2);
   scarfTail.scale.set(1, 0.4, 1);
   scarfTail.position.set(0.12, 0.84, -0.22);
@@ -143,9 +155,19 @@ export function buildSkier() {
   let spin = 0;
   const lerp = (from, to, rate, dt) => from + (to - from) * Math.min(1, dt * rate);
 
-  // info: { steer, airborne, tucked, crashed, speed }
+  // info: { steer, airborne, tucked, crashed, speed, trick: { axis: 'x' | 'y', sign, progress } | null }
   function animate(dt, info) {
     time += dt;
+
+    // a trick is one full turn, eased in and out; with none under way (or once it's over) ease back upright
+    if (info.trick && !info.crashed) {
+      const u = info.trick.progress;
+      const eased = u * u * (3 - 2 * u);
+      acro.quaternion.setFromAxisAngle(AXES[info.trick.axis], info.trick.sign * eased * Math.PI * 2);
+    } else {
+      acro.quaternion.slerp(UPRIGHT, Math.min(1, dt * 20));
+    }
+
     tuck = lerp(tuck, info.tucked ? 1 : 0, 9, dt);
 
     // lean into the turn (the whole body tips over the edges) and fold forward in a tuck;
@@ -188,7 +210,15 @@ export function buildSkier() {
   function reset() {
     tuck = spin = 0;
     rider.rotation.set(0, 0, 0);
+    acro.quaternion.identity();
   }
 
-  return { group, animate, reset };
+  // colours: { hat, scarf, ski } as CSS hex strings
+  function setColors(colors) {
+    hatMat.color.set(colors.hat);
+    scarfMat.color.set(colors.scarf);
+    skiMat.color.set(colors.ski);
+  }
+
+  return { group, animate, reset, setColors };
 }

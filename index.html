@@ -43,8 +43,8 @@
 
   <!-- Start hint, shown during the countdown -->
   <div id="hint" class="hidden">
-    <div class="hint-touch">Drag left/right to steer · hold a second finger down to tuck</div>
-    <div class="hint-keys">←/→ or A/D to steer · hold ↓, S or Space to tuck</div>
+    <div class="hint-touch">Drag to steer · second finger tucks · flick in the air for tricks</div>
+    <div class="hint-keys">←/→ steer · hold ↓ or Space to tuck · in the air, tap ↑/↓ to flip and ←/→ to spin</div>
   </div>
 
   <div id="toast"></div>
@@ -59,18 +59,41 @@
         <div class="pill">🏁 Furthest <b id="menu-dist">0 m</b></div>
       </div>
       <button id="btn-play" class="btn primary">Ski!</button>
+      <button id="btn-prefs" class="btn">🎨 Customize</button>
+      <button id="btn-help" class="btn">❓ How to play</button>
+      <button id="btn-reset" class="link-btn">Reset scores</button>
+      <div class="credits">Igloo model: “Igloo” by Poly by Google, CC-BY 3.0</div>
+    </div>
+  </div>
+
+  <!-- How to play -->
+  <div id="help" class="overlay hidden">
+    <div class="card">
+      <h2>How to play</h2>
       <div class="howto">
         <div><b>Steer:</b> drag left/right, or ←/→ and A/D.</div>
         <div><b>Tuck:</b> hold a second finger on the screen, or ↓, S or Space. Faster, but you turn less sharply.</div>
         <div>The hill gets steeper the further you go. Turning hard scrubs off speed.</div>
-        <div><b>One crash ends the run.</b> Trees, igloos, polar bears, snowmen and penguins all count.</div>
+        <div><b>One crash ends the run.</b> Trees, igloos, polar bears, snowmen, penguins and giant rolling snowballs all count.</div>
         <div><b>Chasms:</b> hit a kicker in front of one at speed to jump it. Miss the kicker or come in slow and you're in. Red posts mark where there's no kicker.</div>
-        <div><b>Score:</b> 1 per metre, 5 per coin, 50 per chasm cleared, plus airtime bonuses.</div>
+        <div><b>Tricks:</b> in the air, tap ↑ for a front flip, ↓ for a back flip, ← to spin left or → to spin right (hold ←/→ to steer, ↓ to tuck), or flick the screen. Finish before you land or you crash. Chain tricks in one jump for 1x, 2x, 3x…</div>
+        <div><b>Score:</b> 1 per metre, 10 per coin, 50 per chasm cleared, plus airtime and trick bonuses.</div>
         <div>Booster pads speed you up. Ice is fast but slippery. Birds up high slow you down.</div>
         <div><b>Sound:</b> M or the speaker button to mute.</div>
       </div>
-      <button id="btn-reset" class="link-btn">Reset scores</button>
-      <div class="credits">Igloo model: “Igloo” by Poly by Google, CC-BY 3.0</div>
+      <button id="btn-help-close" class="btn primary">Got it</button>
+    </div>
+  </div>
+
+  <!-- Preferences: the penguin's colours (swatches are built in ui.js) -->
+  <div id="prefs" class="overlay prefs hidden">
+    <div class="card">
+      <h2>Customize</h2>
+      <div class="pref" data-pref="hat"><div class="pref-label">Hat</div><div class="swatches"></div></div>
+      <div class="pref" data-pref="scarf"><div class="pref-label">Scarf</div><div class="swatches"></div></div>
+      <div class="pref" data-pref="ski"><div class="pref-label">Skis</div><div class="swatches"></div></div>
+      <button id="btn-prefs-done" class="btn primary">Done</button>
+      <button id="btn-prefs-reset" class="link-btn">Reset colours</button>
     </div>
   </div>
 
@@ -83,7 +106,8 @@
       <div class="big-dist" id="res-score">0</div>
       <table class="res-table">
         <tr><td>Distance</td><td id="res-dist">0 m</td></tr>
-        <tr><td>Coins</td><td id="res-coins">0</td></tr>
+        <tr id="res-coins-row"><td>Coins</td><td id="res-coins">0</td></tr>
+        <tr><td>Tricks</td><td id="res-tricks">0</td></tr>
         <tr><td>Chasms cleared</td><td id="res-chasms">0</td></tr>
         <tr><td>Airtime bonus</td><td id="res-air">0</td></tr>
       </table>

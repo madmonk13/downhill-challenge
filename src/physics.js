@@ -52,8 +52,10 @@ export class SkierBody {
     this.penguinHits = []; // { penguin, speed, vel } since last read
     this.birdHits = []; // { bird, speed, vel } since last read
     this.obstacleHits = []; // { obstacle, severity, speed, x, z } since last read
-    this.crashed = null; // { kind: 'tree' | 'igloo' | 'bear' | 'snowman' | 'penguin' | 'chasm', speed } once you wipe out
+    this.snowballHits = []; // { ball, x, y, z, r, vel } since last read
+    this.crashed = null; // { kind: 'tree' | 'igloo' | 'bear' | 'snowman' | 'penguin' | 'snowball' | 'chasm' | 'trick', speed } once you wipe out
     this.landing = null; // { impact, airTime } set on the step the skier lands
+    this.touchdown = false; // true on the step the skier touches snow after being airborne
   }
 
   get speed() {
@@ -76,6 +78,7 @@ export class SkierBody {
     const p = this.pos;
     const v = this.vel;
     this.landing = null;
+    this.touchdown = false;
     this.tucked = !this.crashed && ctl.tuck;
 
     v.y -= GRAVITY * dt;
@@ -119,12 +122,14 @@ export class SkierBody {
         this.checkSnowman(terrain, ground);
         this.checkPenguin(terrain, ground);
         this.checkObstacle(terrain, ground);
+        this.checkSnowball(terrain);
         this.checkBird(terrain);
       }
     }
 
     const wasAirTime = this.airTime;
     if (p.y <= ground) {
+      if (this.airborne) this.touchdown = true;
       p.y = ground;
       const n = terrain.normal(p.x, p.z, tmpN);
       const vn = v.dot(n);
@@ -211,6 +216,18 @@ export class SkierBody {
     v.multiplyScalar(BIRD_KEEP);
     if (v.y > 0) v.y *= BIRD_KEEP;
     this.surge = 0;
+  }
+
+  // A rolling snowball flattens you, and carries you along the way it's going. Jump clear over it and you're fine.
+  checkSnowball(terrain) {
+    const p = this.pos, v = this.vel;
+    const hit = terrain.snowballAt(p.x, p.y + 0.6, p.z, SKIER_R);
+    if (!hit) return;
+    this.snowballHits.push({ ball: hit.ball, x: hit.x, y: hit.y, z: hit.z, r: hit.r, vel: v.clone() });
+    this.crash('snowball');
+    v.multiplyScalar(0.5);
+    v.x += hit.ball.dir * hit.ball.speed * 0.9;
+    v.y = Math.max(v.y, 0) + 3;
   }
 
   // Trees, igloos and polar bears never move: hit one and you bounce off it and go down.

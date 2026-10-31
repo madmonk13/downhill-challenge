@@ -3,6 +3,7 @@
 // in chunks ahead of the sled and discarded behind it.
 
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, hash1, hash2 } from './rng.js';
 
 export const CHUNK_LEN = 100;
@@ -16,8 +17,8 @@ const OUTER_SEG = 14;
 const SEG_Z = 50;
 const START_DROP = 10; // height of the opening drop below the start gate
 const START_LEN = 60;
-const SLOPE_START = 0.1; // overall downhill gradient below the opening drop...
-const SLOPE_END = 0.22; // ...steepening to this...
+const SLOPE_START = 0.15; // overall downhill gradient below the opening drop...
+const SLOPE_END = 0.3; // ...steepening to this...
 const SLOPE_RAMP = 3000; // ...over this many metres, so the run keeps getting faster
 const ICE_START_CHUNK = 2;
 const RAMP_START_CHUNK = 1;
@@ -44,7 +45,10 @@ const PENGUIN_FOOT_Y = 0.035; // foot centre above the snow on flat ground (feet
 const BEAR_START_CHUNK = 4;
 const BIRD_START_CHUNK = 2;
 export const BIRD_R = 0.8; // collision radius of a bird
+const SNOWBALL_START_CHUNK = 3;
+const SNOWBALL_LIM = TRACK_HALF + 6; // balls roll in from this far out either side, so they cross the whole lane
 const BIRD_WRAP = 110; // flocks cross the course and loop round beyond the banks
+export const COINS_ENABLED = true; // set false to switch coins off: nothing is placed and the UI hides them
 const CHASM_START_CHUNK = 3;
 const CHASM_DEPTH = 28;
 const CHASM_HALF = 70; // chasms cut right across the valley, beyond where you can ski, so there's no way round
@@ -74,8 +78,43 @@ const COLUMN_X = (() => {
 const CELL_Z = CHUNK_LEN / SEG_Z;
 
 const snowMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-export const coinGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 12).rotateX(Math.PI / 2);
-export const coinMat = new THREE.MeshLambertMaterial({ color: 0xffc83a, emissive: 0x7a5200 });
+// A coin is a gold disc (axis along z) with "10" on both faces. The geometry carries three
+// material groups, so coinMat is an array: [rim, front face, back face].
+const COIN_R = 0.7;
+const COIN_T = 0.14;
+export const coinGeo = mergeGeometries([
+  new THREE.CylinderGeometry(COIN_R, COIN_R, COIN_T, 24, 1, true).rotateX(Math.PI / 2),
+  new THREE.CircleGeometry(COIN_R, 24).translate(0, 0, COIN_T / 2 + 0.002),
+  new THREE.CircleGeometry(COIN_R, 24).rotateY(Math.PI).translate(0, 0, -COIN_T / 2 - 0.002),
+], true);
+const coinFaceTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const draw = () => {
+    ctx.fillStyle = '#ffc83a';
+    ctx.fillRect(0, 0, 256, 256);
+    ctx.strokeStyle = '#d99a10'; // raised rim
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.arc(128, 128, 112, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#8a5600';
+    ctx.font = 'bold 118px Fredoka, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('10', 128, 136);
+  };
+  draw();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  // the web font may not be ready yet: redraw once it is
+  document.fonts?.load('bold 118px Fredoka').then(() => { draw(); tex.needsUpdate = true; });
+  return tex;
+})();
+const coinFaceMat = new THREE.MeshLambertMaterial({ map: coinFaceTex, emissive: 0x4a3200 });
+export const coinMat = [new THREE.MeshLambertMaterial({ color: 0xe8a916, emissive: 0x7a5200 }), coinFaceMat, coinFaceMat];
 const treeLowGeo = new THREE.ConeGeometry(2.4, 4.5, 6).translate(0, 3.6, 0);
 const treeHighGeo = new THREE.ConeGeometry(1.7, 3.6, 6).translate(0, 6.2, 0);
 const trunkGeo = new THREE.CylinderGeometry(0.35, 0.45, 1.6, 5).translate(0, 0.8, 0);
@@ -86,7 +125,7 @@ const gateGeo = new THREE.CylinderGeometry(0.08, 0.08, 1.6, 5).translate(0, 0.8,
 const gateMat = new THREE.MeshLambertMaterial({ color: 0xff6b3d });
 const rimMat = new THREE.MeshLambertMaterial({ color: 0xd42f2f });
 
-const rampMat = new THREE.MeshLambertMaterial({ color: 0xd9ecfa, flatShading: true });
+const rampMat = new THREE.MeshLambertMaterial({ color: 0xd9ecfa });
 
 const COLOR_SNOW =new THREE.Color(0xf7fbff);
 const COLOR_BANK = new THREE.Color(0xe4edf6);
@@ -368,6 +407,32 @@ const birdTipGeo = (() => {
   return new THREE.ShapeGeometry(shape).rotateX(Math.PI / 2).translate(0, -0.005, 0);
 })();
 
+// A giant snowball: a lumpy icosphere of unit radius, patchy so its roll can be seen.
+const snowballGeo = (() => {
+  const g = new THREE.IcosahedronGeometry(1, 2);
+  const pos = g.attributes.position;
+  const bump = (x, y, z) => 0.09 * Math.sin(x * 7.1 + y * 3.3) * Math.sin(y * 6.7 + z * 4.1) * Math.sin(z * 5.3 + x * 2.9);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i); // on the unit sphere, so shared corners get the same bump
+    const k = 1 + bump(x, y, z);
+    pos.setXYZ(i, x * k, y * k, z * k);
+  }
+  const colors = new Float32Array(pos.count * 3);
+  const c = new THREE.Color();
+  for (let t = 0; t < pos.count; t += 3) {
+    const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3;
+    const cy = (pos.getY(t) + pos.getY(t + 1) + pos.getY(t + 2)) / 3;
+    const cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
+    const n = Math.sin(cx * 4 + 1) * Math.sin(cy * 5) * Math.sin(cz * 4.5 + 2);
+    c.set(n > 0.22 ? 0x8fabc8 : n < -0.3 ? 0xeaf3fb : 0xbdd1e4); // bluish-grey, so it stands out against white snow
+    for (let k = 0; k < 3; k++) c.toArray(colors, (t + k) * 3);
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
+})();
+const snowballMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+
 function buildBird() {
   const g = new THREE.Group();
   const lump = (mat, sx, sy, sz, x, y, z) => {
@@ -426,6 +491,7 @@ export class Terrain {
     this.obstacles = new Map();
     this.penguins = new Map();
     this.birds = new Map();
+    this.snowballs = new Map();
     this.clock = 0; // seconds, advanced by animate(); birds fly on it
   }
 
@@ -586,13 +652,20 @@ export class Terrain {
     return c;
   }
 
-  // How far below the snow a chasm cuts at (x, z): full depth across the valley, closing
-  // to a point at each end.
+  // How far below the snow a chasm cuts at (x, z). The rim rows (z0 and z1) stay put, but the
+  // floor wanders in depth along the valley, each wall steps down through a slumped ledge of
+  // uneven height, and the ends close up at a ragged, off-centre point instead of a neat funnel.
   chasmDepth(x, z) {
     const c = this.chasmFor(Math.floor(z / CHUNK_LEN));
     if (!c || z <= c.z0 || z >= c.z1) return 0;
+    const ends = CHASM_HALF + (this.noise2(z / 5, c.z0 / 7, 67) * 2 - 1) * 8;
     const ax = Math.abs(x);
-    return ax >= CHASM_HALF ? 0 : CHASM_DEPTH * smooth((CHASM_HALF - ax) / 10);
+    if (ax >= ends) return 0;
+    const floor = CHASM_DEPTH * (0.8 + 0.2 * this.noise2(x / 9, c.z0 / 17, 61));
+    const ledge = 0.2 + 0.5 * this.noise2(x / 6, c.z0 / 11, 63); // share of the depth reached one cell in
+    const cells = Math.min(z - c.z0, c.z1 - z) / CELL_Z; // distance from the nearer rim, in mesh rows
+    const tier = cells < 1 ? ledge * cells : cells < 2 ? ledge + (1 - ledge) * (cells - 1) : 1;
+    return floor * tier * smooth((ends - ax) / 10);
   }
 
   chasmAt(x, z) {
@@ -840,6 +913,75 @@ export class Terrain {
     return null;
   }
 
+  // ---------- snowballs ----------
+
+  // Now and then a big snowball rolls across the lane from one side. Each runs a cycle on the
+  // terrain clock: roll across, vanish at the far bank, rest a few seconds, roll again.
+  snowballsFor(ci) {
+    let list = this.snowballs.get(ci);
+    if (list) return list;
+    list = [];
+    if (ci >= SNOWBALL_START_CHUNK) {
+      const r = mulberry32((this.seed ^ Math.imul(ci + 31, 0x2c1b3c6d)) >>> 0);
+      if (r() < Math.min(0.55, 0.3 + ci * 0.015)) {
+        const R = 1.5 + r() * 0.8;
+        const ramps = this.rampsFor(ci);
+        const pads = this.padsFor(ci);
+        const snowmen = this.snowmenFor(ci);
+        const penguins = this.penguinsFor(ci);
+        const obstacles = this.obstaclesFor(ci);
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const z = ci * CHUNK_LEN + 12 + r() * (CHUNK_LEN - 24);
+          // it sweeps the full width, so keep its whole row clear of anything it would roll through
+          const blocked =
+            ramps.some((p) => z > p.lip - p.len - 3 - R && z < p.lip + RAMP_DROP + 10 + R) ||
+            pads.some((p) => z > p.z - 6 - R && z < p.z + PAD_LEN + 6 + R) ||
+            snowmen.some((p) => Math.abs(p.z - z) < R + 2) ||
+            penguins.some((p) => Math.abs(p.z - z) < R + 2) ||
+            obstacles.some((o) => o.circles.some((c) => Math.abs(c.z - z) < R + c.r + 1)) ||
+            this.nearChasm(z, R + 4);
+          if (blocked) continue;
+          const speed = 7 + r() * 4;
+          const cross = (2 * SNOWBALL_LIM) / speed; // seconds to roll across
+          const period = cross + 3 + r() * 6; // ...then rest
+          list.push({
+            z, R, speed, cross, period, dir: r() < 0.5 ? -1 : 1, phase: r() * period, mesh: null,
+          });
+          break;
+        }
+      }
+    }
+    this.snowballs.set(ci, list);
+    return list;
+  }
+
+  // Where a snowball is right now: { x, u (seconds into the roll), scale } or null while it rests.
+  // It grows from nothing over its first few metres and shrinks away over its last, so it
+  // seems to roll out of one bank and into the other.
+  snowballState(b) {
+    const u = (this.clock + b.phase) % b.period;
+    if (u >= b.cross) return null;
+    const edge = Math.min(u, b.cross - u) * b.speed; // metres from the nearer end of the roll
+    return { x: -b.dir * SNOWBALL_LIM + b.dir * b.speed * u, u, scale: smooth(edge / 3) };
+  }
+
+  // The rolling snowball that a skier at (x, y, z) with this radius touches: { ball, x, y, z, r }.
+  snowballAt(x, y, z, radius) {
+    const ci = Math.floor(z / CHUNK_LEN);
+    for (let c = ci - 1; c <= ci + 1; c++) {
+      for (const b of this.snowballsFor(c)) {
+        const s = this.snowballState(b);
+        if (!s) continue;
+        const r = b.R * s.scale;
+        const cy = this.height(s.x, b.z) + r;
+        const dx = x - s.x, dy = y - cy, dz = z - b.z;
+        const reach = r * 0.92 + radius; // a touch forgiving: the lumps don't count
+        if (dx * dx + dy * dy + dz * dz < reach * reach) return { ball: b, x: s.x, y: cy, z: b.z, r };
+      }
+    }
+    return null;
+  }
+
   // ---------- birds ----------
 
   // Small V-shaped flocks crossing the course at jumping and gliding heights.
@@ -903,6 +1045,18 @@ export class Terrain {
         if (ud.indignant > 0) ud.indignant -= dt; // just got bumped: flap furiously
         const flap = ud.indignant > 0 ? 1 : Math.max(0, Math.sin(t * 0.9 + p.phase * 1.7) - 0.85) * 4; // occasional excited flap
         for (const f of flippers) f.rotation.z = f.userData.side * (0.25 + flap * Math.abs(Math.sin(t * 18)));
+      }
+    }
+    for (const list of this.snowballs.values()) {
+      for (const b of list) {
+        if (!b.mesh) continue;
+        const s = this.snowballState(b);
+        b.mesh.visible = !!s;
+        if (!s) continue;
+        const r = b.R * s.scale;
+        b.mesh.scale.setScalar(r);
+        b.mesh.position.set(s.x, this.height(s.x, b.z) + r * 0.96, b.z); // sits a little into the snow
+        b.mesh.rotation.z = -(b.dir * b.speed * s.u) / b.R; // rolling without slipping
       }
     }
     for (const list of this.birds.values()) {
@@ -1030,7 +1184,7 @@ export class Terrain {
         this.chunks.delete(ci);
       }
     }
-    for (const cache of [this.chasms, this.icePatches, this.ramps, this.pads, this.snowmen, this.obstacles, this.penguins, this.birds]) {
+    for (const cache of [this.chasms, this.icePatches, this.ramps, this.pads, this.snowmen, this.obstacles, this.penguins, this.birds, this.snowballs]) {
       for (const ci of cache.keys()) {
         if (ci < minCi - 2) cache.delete(ci);
       }
@@ -1062,13 +1216,23 @@ export class Terrain {
     for (let t = 0; t < pos.count; t += 3) {
       const cx = (pos.getX(t) + pos.getX(t + 1) + pos.getX(t + 2)) / 3;
       const cz = (pos.getZ(t) + pos.getZ(t + 1) + pos.getZ(t + 2)) / 3;
-      const below = chasm && cz > chasm.z0 && cz < chasm.z1
-        ? this.surface(cx, cz) - (pos.getY(t) + pos.getY(t + 1) + pos.getY(t + 2)) / 3
-        : 0;
-      if (below > 0.4) {
-        // chasm walls: icy blue at the lip, darkening with depth
-        c.copy(CREVASSE_TOP).lerp(CREVASSE_DEEP, Math.min(1, below / (CHASM_DEPTH * 0.7))).offsetHSL(0, 0, -rand() * 0.03);
-      } else if (Math.abs(cx) > TRACK_HALF) {
+      if (chasm && cz > chasm.z0 && cz < chasm.z1) {
+        const d0 = this.chasmDepth(pos.getX(t), pos.getZ(t));
+        const d1 = this.chasmDepth(pos.getX(t + 1), pos.getZ(t + 1));
+        const d2 = this.chasmDepth(pos.getX(t + 2), pos.getZ(t + 2));
+        if (Math.max(d0, d1, d2) > 0.4) {
+          // chasm walls: icy blue at the lip, darkening with depth. Colour each vertex by its
+          // own depth so the shade blends smoothly across a face; colouring a whole face by its
+          // centroid gave the two triangles of every wall quad very different shades.
+          const jitter = -rand() * 0.02;
+          [d0, d1, d2].forEach((d, k) => {
+            c.copy(CREVASSE_TOP).lerp(CREVASSE_DEEP, Math.min(1, d / (CHASM_DEPTH * 0.7))).offsetHSL(0, 0, jitter);
+            c.toArray(colors, (t + k) * 3);
+          });
+          continue;
+        }
+      }
+      if (Math.abs(cx) > TRACK_HALF) {
         c.copy(COLOR_BANK).offsetHSL(0, 0, -rand() * 0.035);
       } else {
         c.copy(COLOR_SNOW).offsetHSL(0, 0, -rand() * 0.03);
@@ -1145,6 +1309,14 @@ export class Terrain {
       group.add(p.mesh);
     }
 
+    // snowballs (placed and rolled each frame by animate())
+    for (const b of this.snowballsFor(ci)) {
+      b.mesh = new THREE.Mesh(snowballGeo, snowballMat);
+      b.mesh.castShadow = true;
+      b.mesh.visible = false;
+      group.add(b.mesh);
+    }
+
     // birds
     for (const b of this.birdsFor(ci)) {
       if (b.down) continue;
@@ -1219,6 +1391,7 @@ export class Terrain {
     // coin patterns
     const coins = [];
     const addCoin = (x, y, z, overChasm = false) => {
+      if (!COINS_ENABLED) return;
       if (!overChasm && this.nearChasm(z)) return;
       const above = y - this.height(x, z);
       if (this.obstacleAt(x, z, 0.6, above) || this.penguinAt(x, z, 0.4, above)) return; // no coins buried in hazards
@@ -1232,7 +1405,7 @@ export class Terrain {
     // kicker ramps, each with a coin arc over the landing
     for (const r of this.rampsFor(ci)) {
       const runout = r.chasm ? 0 : RAMP_DROP;
-      const rg = new THREE.PlaneGeometry(r.w + 2, r.len + runout, 6, 16);
+      const rg = new THREE.PlaneGeometry(r.w + 2, r.len + runout, Math.ceil((r.w + 2) / 1.5), 16);
       rg.rotateX(-Math.PI / 2);
       const rp = rg.attributes.position;
       const zc = r.lip - r.len + (r.len + runout) / 2;
@@ -1241,9 +1414,8 @@ export class Terrain {
         const z = rp.getZ(i) + zc;
         rp.setXYZ(i, x, this.height(x, Math.min(z, r.lip - 1e-3)) + 0.03, z);
       }
-      const geo = rg.toNonIndexed();
-      rg.dispose();
-      geo.computeVertexNormals();
+      rg.computeVertexNormals(); // indexed, so normals are shared and the curved kicker shades smoothly
+      const geo = rg;
       const ramp = new THREE.Mesh(geo, rampMat);
       ramp.receiveShadow = true;
       group.add(ramp);
@@ -1261,33 +1433,17 @@ export class Terrain {
         this.chasmCoins(r, addCoin);
         continue;
       }
-      for (let j = 0; j < 7; j++) {
-        const z = r.lip + 6 + j * 4;
-        addCoin(r.x, this.height(r.x, z) + 1.5 + Math.sin((j / 6) * Math.PI) * (2 + r.h), z);
-      }
+      // one coin hanging at the top of the jump
+      const apexZ = r.lip + 18;
+      addCoin(r.x, this.height(r.x, apexZ) + 3.5 + r.h, apexZ);
     }
+    // single coins scattered over the lane
     if (ci >= 0) {
-      const patterns = ci === 0 ? 2 : 2 + Math.floor(rand() * 3);
-      for (let k = 0; k < patterns; k++) {
-        const type = rand();
-        const count = 6 + Math.floor(rand() * 6);
-        const zStart = z0 + 6 + rand() * (CHUNK_LEN - count * 3.2 - 6);
-        const x0 = (rand() * 2 - 1) * (TRACK_HALF - 7);
-        const arcHeight = 3 + rand() * 5;
-        for (let j = 0; j < count; j++) {
-          let x = x0;
-          let lift = 1.0;
-          const z = zStart + j * 3.2;
-          if (type < 0.35) {
-            // straight line
-          } else if (type < 0.7) {
-            x = x0 + Math.sin(j * 0.6) * 5;
-          } else if (ci > 0) {
-            lift = 1 + Math.sin((j / (count - 1)) * Math.PI) * arcHeight;
-          }
-          x = Math.max(-(TRACK_HALF - 2), Math.min(TRACK_HALF - 2, x));
-          addCoin(x, this.height(x, z) + lift, z);
-        }
+      const n = ci === 0 ? 2 : 3 + Math.floor(rand() * 3);
+      for (let k = 0; k < n; k++) {
+        const x = (rand() * 2 - 1) * (TRACK_HALF - 3);
+        const z = z0 + 8 + rand() * (CHUNK_LEN - 16);
+        addCoin(x, this.height(x, z) + 1.0, z);
       }
     }
 
@@ -1325,25 +1481,22 @@ export class Terrain {
     disposables.push(posts);
   }
 
-  // A trail of coins along a typical jump off a chasm kicker: a bonus for clearing it cleanly.
+  // One coin over the middle of a chasm, on the path of a typical jump off the kicker: a bonus for clearing it.
   chasmCoins(r, addCoin) {
     const lip = r.lip - 1e-3;
     const y0 = this.height(r.x, lip);
     const slope = (y0 - this.height(r.x, lip - 0.6)) / 0.6;
+    const mid = (r.chasm.z0 + r.chasm.z1) / 2;
     const speed = 19;
     let z = lip, y = y0 + 0.7, vz = speed / Math.hypot(1, slope), vy = vz * slope;
-    let next = lip + 3;
-    while (z < r.chasm.z1 + 4) {
+    while (z < mid) {
       const dt = 0.02;
       vy -= 12 * dt;
       z += vz * dt;
       y += vy * dt;
-      if (y < this.surface(r.x, z) + 0.7) break;
-      if (z >= next) {
-        addCoin(r.x, y, z, true);
-        next += 3.5;
-      }
+      if (y < this.surface(r.x, z) + 0.7) return;
     }
+    addCoin(r.x, y, z, true);
   }
 
   iceGeometry(p, rand) {
@@ -1400,6 +1553,7 @@ export class Terrain {
     this.obstacles.clear();
     this.penguins.clear();
     this.birds.clear();
+    this.snowballs.clear();
   }
 }
 

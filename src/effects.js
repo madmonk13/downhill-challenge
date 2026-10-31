@@ -36,8 +36,11 @@ export class CoinFx {
   constructor(scene) {
     this.ghosts = [];
     for (let i = 0; i < GHOSTS; i++) {
-      const material = coinMat.clone();
-      material.transparent = true;
+      const material = coinMat.map((m) => {
+        const c = m.clone();
+        c.transparent = true;
+        return c;
+      });
       const mesh = new THREE.Mesh(coinGeo, material);
       mesh.visible = false;
       scene.add(mesh);
@@ -106,7 +109,8 @@ export class CoinFx {
       const scale = g.t < 0.3 ? 1 + g.t * 1.5 : 1.45 * (1 - (g.t - 0.3) / 0.7) + 0.1;
       m.scale.setScalar(scale);
       m.rotation.y += dt * 22;
-      m.material.opacity = g.t < 0.6 ? 1 : 1 - (g.t - 0.6) / 0.4;
+      const opacity = g.t < 0.6 ? 1 : 1 - (g.t - 0.6) / 0.4;
+      for (const mat of m.material) mat.opacity = opacity;
     }
 
     for (let i = 0; i < GLINTS; i++) {
@@ -180,6 +184,18 @@ export class HazardFx {
     p.spin.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(14);
     p.life = DEBRIS_LIFE * (0.7 + Math.random() * 0.3);
     p.floaty = false;
+  }
+
+  // A snowball rolls over the skier: a spray of snow chunks flung along the way it's going.
+  // hit: { ball, x, y, z } from the physics
+  snowball(hit) {
+    const pos = new THREE.Vector3();
+    const vel = new THREE.Vector3();
+    for (let i = 0; i < 16; i++) {
+      pos.set(hit.x - hit.ball.dir * hit.r * 0.9 + (Math.random() - 0.5) * 1.2, hit.y - hit.r * 0.5 + Math.random() * 1.5, hit.z + (Math.random() - 0.5) * 1.6);
+      vel.set(hit.ball.dir * (2 + Math.random() * 6), 3 + Math.random() * 5, (Math.random() - 0.5) * 7);
+      this.spawn(chunkGeo, debrisSnowMat, 0.2 + Math.random() * 0.35, pos, vel);
+    }
   }
 
   // hit: { snowman, vel } from the physics; vel is the skier's velocity before impact

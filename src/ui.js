@@ -1,5 +1,8 @@
 // DOM overlays: menu, HUD, the start hint and results.
 
+import { COINS_ENABLED } from './terrain.js';
+import { DEFAULT_COLORS } from './save.js';
+
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.floor(n).toLocaleString();
 export const MPH = 2.23694; // m/s -> mph
@@ -11,12 +14,22 @@ const CRASH_LINES = {
   snowman: 'You took out a snowman.',
   penguin: 'You bowled over a penguin.',
   chasm: 'You fell into a chasm.',
+  trick: 'You landed in the middle of a trick.',
+  snowball: 'You were flattened by a giant snowball.',
 };
+
+const PALETTE = [
+  '#e84a3a', '#ff9a2e', '#f5c518', '#2fb36b', '#1fb5b5',
+  '#2f7fd4', '#8a5cd0', '#f06292', '#f7f7f2', '#23262e',
+];
 
 export class UI {
   constructor(handlers) {
-    this.h = handlers; // { play, endRun, reset }
+    this.h = handlers; // { play, endRun, reset, colors(colors) }
     this.lastScore = -1;
+    this.prefsOpen = false; // the preferences panel is up; main.js frames the penguin close-up
+    this.helpOpen = false; // the how-to-play panel is up
+    this.buildPrefs();
     $('btn-play').onclick = () => this.h.play();
     $('btn-again').onclick = () => this.h.play();
     $('btn-menu').onclick = () => this.showMenu(this.save);
@@ -27,7 +40,72 @@ export class UI {
   }
 
   show(screen) {
-    for (const id of ['menu', 'results']) $(id).classList.toggle('hidden', id !== screen);
+    for (const id of ['menu', 'results', 'prefs', 'help']) $(id).classList.toggle('hidden', id !== screen);
+    this.prefsOpen = screen === 'prefs';
+    this.helpOpen = screen === 'help';
+  }
+
+  // ---------- preferences: hat, scarf and ski colours ----------
+  buildPrefs() {
+    for (const row of document.querySelectorAll('.pref')) {
+      const key = row.dataset.pref;
+      const box = row.querySelector('.swatches');
+      for (const color of PALETTE) {
+        const b = document.createElement('button');
+        b.className = 'swatch';
+        b.style.background = color;
+        b.dataset.color = color;
+        b.setAttribute('aria-label', `${key} ${color}`);
+        b.onclick = () => this.setColor(key, color);
+        box.append(b);
+      }
+      // any other colour, via the browser's own picker
+      const custom = document.createElement('label');
+      custom.className = 'swatch custom';
+      custom.title = 'Pick any colour';
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.setAttribute('aria-label', `${key} custom colour`);
+      input.oninput = () => this.setColor(key, input.value);
+      custom.append(input);
+      box.append(custom);
+    }
+    $('btn-prefs').onclick = () => this.showPrefs();
+    $('btn-help').onclick = () => this.show('help');
+    $('btn-help-close').onclick = () => this.showMenu(this.save);
+    $('btn-prefs-done').onclick = () => this.showMenu(this.save);
+    $('btn-prefs-reset').onclick = () => {
+      this.save.colors = { ...DEFAULT_COLORS };
+      this.h.colors(this.save.colors);
+      this.refreshPrefs();
+    };
+  }
+
+  showPrefs() {
+    this.refreshPrefs();
+    this.show('prefs');
+  }
+
+  setColor(key, color) {
+    this.save.colors = { ...this.save.colors, [key]: color };
+    this.h.colors(this.save.colors);
+    this.refreshPrefs();
+  }
+
+  // mark the swatch matching each current colour; a colour outside the palette lights up the custom one
+  refreshPrefs() {
+    for (const row of document.querySelectorAll('.pref')) {
+      const current = this.save.colors[row.dataset.pref];
+      let matched = false;
+      for (const s of row.querySelectorAll('.swatch:not(.custom)')) {
+        const on = s.dataset.color === current;
+        s.classList.toggle('selected', on);
+        matched ||= on;
+      }
+      const custom = row.querySelector('.swatch.custom');
+      custom.classList.toggle('selected', !matched);
+      row.querySelector('input').value = current;
+    }
   }
 
   showMenu(save) {
@@ -85,7 +163,9 @@ export class UI {
     $('res-best-badge').classList.toggle('hidden', !r.newBest);
     $('res-score').textContent = fmt(r.total);
     $('res-dist').textContent = `${fmt(r.distance)} m`;
-    $('res-coins').textContent = `${fmt(r.coins)} × 5 = ${fmt(r.coinPoints)}`;
+    $('res-coins-row').classList.toggle('hidden', !COINS_ENABLED);
+    $('res-coins').textContent = `${fmt(r.coins)} × ${fmt(r.coinValue)} = ${fmt(r.coinPoints)}`;
+    $('res-tricks').textContent = fmt(r.tricks);
     $('res-chasms').textContent = `${fmt(r.chasms)} × 50 = ${fmt(r.chasmPoints)}`;
     $('res-air').textContent = fmt(r.air);
     $('res-best').textContent = fmt(save.best);
