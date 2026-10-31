@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>Downhill Challenge</title>
+  <title>Just Ski</title>
   <meta name="description" content="Ski a penguin down an endless mountain: dodge trees, bears and penguins, and jump the chasms.">
   <meta name="theme-color" content="#5aa9e6">
   <link rel="manifest" href="manifest.json">
@@ -12,7 +12,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Downhill">
+  <meta name="apple-mobile-web-app-title" content="Just Ski">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -52,17 +52,16 @@
   <!-- Main menu -->
   <div id="menu" class="overlay">
     <div class="card">
-      <h1>Downhill <span>Challenge</span></h1>
+      <h1>Just <span>Ski</span></h1>
       <p class="tag">Ski fast. Dodge everything. Jump the gaps.</p>
       <div class="pill-row">
         <div class="pill">🏆 Best <b id="menu-best">0</b></div>
         <div class="pill">🏁 Furthest <b id="menu-dist">0 m</b></div>
       </div>
       <button id="btn-play" class="btn primary">Ski!</button>
-      <button id="btn-prefs" class="btn">🎨 Customize</button>
+      <button id="btn-prefs" class="btn">⚙️ Settings</button>
       <button id="btn-help" class="btn">❓ How to play</button>
       <button id="btn-reset" class="link-btn">Reset scores</button>
-      <div class="credits">Igloo model: “Igloo” by Poly by Google, CC-BY 3.0</div>
     </div>
   </div>
 
@@ -88,12 +87,17 @@
   <!-- Preferences: the penguin's colours (swatches are built in ui.js) -->
   <div id="prefs" class="overlay prefs hidden">
     <div class="card">
-      <h2>Customize</h2>
+      <h2>Settings</h2>
       <div class="pref" data-pref="hat"><div class="pref-label">Hat</div><div class="swatches"></div></div>
       <div class="pref" data-pref="scarf"><div class="pref-label">Scarf</div><div class="swatches"></div></div>
       <div class="pref" data-pref="ski"><div class="pref-label">Skis</div><div class="swatches"></div></div>
+      <div class="pref pref-slider">
+        <div class="pref-label">Touch steering <span id="sens-value" class="pref-value"></span></div>
+        <input id="sens" type="range" aria-label="Touch steering sensitivity">
+        <div class="slider-ends"><span>Gentle</span><span>Sharp</span></div>
+      </div>
       <button id="btn-prefs-done" class="btn primary">Done</button>
-      <button id="btn-prefs-reset" class="link-btn">Reset colours</button>
+      <button id="btn-prefs-reset" class="link-btn">Reset settings</button>
     </div>
   </div>
 

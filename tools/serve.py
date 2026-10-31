@@ -1,4 +1,4 @@
-"""Dev server for Downhill Challenge with caching disabled, so edits show up on reload.
+"""Dev server for Just Ski with caching disabled, so edits show up on reload.
 
 Usage: python3 tools/serve.py [port]   (default 5174)
 """
@@ -18,5 +18,5 @@ if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 5174
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     handler = functools.partial(NoCacheHandler, directory=root)
-    print(f"Downhill Challenge on http://localhost:{port}")
+    print(f"Just Ski on http://localhost:{port}")
     http.server.ThreadingHTTPServer(("", port), handler).serve_forever()

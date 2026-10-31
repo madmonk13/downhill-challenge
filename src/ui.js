@@ -1,7 +1,7 @@
 // DOM overlays: menu, HUD, the start hint and results.
 
 import { COINS_ENABLED } from './terrain.js';
-import { DEFAULT_COLORS } from './save.js';
+import { DEFAULT_COLORS, DEFAULT_SENSITIVITY, SENS_MIN, SENS_MAX } from './save.js';
 
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.floor(n).toLocaleString();
@@ -25,7 +25,7 @@ const PALETTE = [
 
 export class UI {
   constructor(handlers) {
-    this.h = handlers; // { play, endRun, reset, colors(colors) }
+    this.h = handlers; // { play, endRun, reset, colors(colors), sensitivity(k) }
     this.lastScore = -1;
     this.prefsOpen = false; // the preferences panel is up; main.js frames the penguin close-up
     this.helpOpen = false; // the how-to-play panel is up
@@ -47,7 +47,7 @@ export class UI {
 
   // ---------- preferences: hat, scarf and ski colours ----------
   buildPrefs() {
-    for (const row of document.querySelectorAll('.pref')) {
+    for (const row of document.querySelectorAll('.pref[data-pref]')) {
       const key = row.dataset.pref;
       const box = row.querySelector('.swatches');
       for (const color of PALETTE) {
@@ -77,7 +77,18 @@ export class UI {
     $('btn-prefs-reset').onclick = () => {
       this.save.colors = { ...DEFAULT_COLORS };
       this.h.colors(this.save.colors);
+      this.save.touchSensitivity = DEFAULT_SENSITIVITY;
+      this.h.sensitivity(DEFAULT_SENSITIVITY);
       this.refreshPrefs();
+    };
+    const sens = $('sens');
+    sens.min = SENS_MIN;
+    sens.max = SENS_MAX;
+    sens.step = 0.05;
+    sens.oninput = () => {
+      this.save.touchSensitivity = Number(sens.value);
+      this.h.sensitivity(this.save.touchSensitivity);
+      this.showSensitivity();
     };
   }
 
@@ -92,9 +103,15 @@ export class UI {
     this.refreshPrefs();
   }
 
+  showSensitivity() {
+    $('sens').value = this.save.touchSensitivity;
+    $('sens-value').textContent = `${Math.round(this.save.touchSensitivity * 100)}%`;
+  }
+
   // mark the swatch matching each current colour; a colour outside the palette lights up the custom one
   refreshPrefs() {
-    for (const row of document.querySelectorAll('.pref')) {
+    this.showSensitivity();
+    for (const row of document.querySelectorAll('.pref[data-pref]')) {
       const current = this.save.colors[row.dataset.pref];
       let matched = false;
       for (const s of row.querySelectorAll('.swatch:not(.custom)')) {

@@ -1,6 +1,6 @@
-# Downhill Challenge
+# Just Ski
 
-An endless downhill skiing game for the browser, built with Three.js. It's a fork of SledMaster: a penguin skis down a mountain that keeps getting steeper. One crash ends the run, so dodge the hazards and jump the chasms. There is no build step.
+An endless downhill skiing game for the browser, built with Three.js. It's a fork of Just Sled: a penguin skis down a mountain that keeps getting steeper. One crash ends the run, so dodge the hazards and jump the chasms. There is no build step.
 
 ## Run
 
@@ -10,7 +10,7 @@ ES modules need a local server; opening `index.html` directly from disk won't wo
 python3 tools/serve.py
 ```
 
-Then open http://localhost:5174. (It uses 5174 so it can run alongside SledMaster on 5173.)
+Then open http://localhost:5174. (It uses 5174 so it can run alongside Just Sled on 5173.)
 
 ## Install on a phone (PWA)
 
@@ -18,7 +18,7 @@ Then open http://localhost:5174. (It uses 5174 so it can run alongside SledMaste
 
 Service workers only run on `https://` or `localhost`. On your local network (`http://<your-mac-ip>:5174`) the game still plays, and iOS can still "Add to Home Screen", but it won't work offline and Android won't offer a real install. For the full PWA, serve it over HTTPS (any static host works).
 
-If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` on every change so phones pick it up. Icons are drawn by `tools/make_icons.py` (needs Pillow). They still show SledMaster's sled.
+If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` on every change so phones pick it up. Icons are drawn by `tools/make_icons.py` (needs Pillow). They still show Just Sled's sled.
 
 ## How it plays
 
@@ -54,6 +54,7 @@ If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` o
   - `DRAG`, `TUCK_DRAG` and `MU` in `src/physics.js` set top speed, standing and tucked.
 - **Tricks:** `TRICKS` in `src/tricks.js` sets each trick's duration and base points, `TAP_MS` is how long a key can be held and still count as a trick tap, `BUFFER` is how long before a trick ends a press is held for the next one, and `FORGIVE` is how far through a trick you can be at touchdown and still count it as finished (1 means it must be fully complete).
 - **Touch tuck:** `TUCK_HOLD_MS` in `src/input.js` is how long a finger must stay down before it tucks.
+- **Touch steering sensitivity:** the slider in Settings (saved per device). `STEER_PX` in `src/input.js` is the drag that gives full lock at 100%, and the default and range are in `src/save.js`.
 - **Steering:** `TURN_RATE`, `TUCK_TURN`, `GRIP`, `CARVE_LOSS` (speed lost carving) and `MAX_YAW` in `src/physics.js`.
 - **Chasms:**
   - In `src/terrain.js`, `chasmFor()` sets how often they appear and how wide they are, and `rampsFor()` sets kicker width, count and height.
@@ -62,7 +63,3 @@ If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` o
 - **Chasm shape:** `chasmDepth()` in `src/terrain.js` (floor depth, ledge height and the ragged ends).
 - **Scoring:** `COIN_POINTS`, `CHASM_POINTS` and the airtime bonus in `onLanding()` in `src/main.js`.
 - **Day/night and weather:** `src/environment.js`.
-
-## Credits
-
-- “Igloo” by Poly by Google, [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/), via Poly Pizza (`models/igloo.glb`, unmodified).

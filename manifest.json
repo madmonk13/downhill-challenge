@@ -1,6 +1,6 @@
 {
-  "name": "Downhill Challenge",
-  "short_name": "Downhill",
+  "name": "Just Ski",
+  "short_name": "Just Ski",
   "description": "Ski a penguin down an endless mountain: dodge trees, bears and penguins, and jump the chasms.",
   "start_url": "./",
   "scope": "./",

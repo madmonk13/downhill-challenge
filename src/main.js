@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { Terrain, CHUNK_LEN, TRACK_HALF, animatePads, setIglooModel } from './terrain.js';
+import { Terrain, CHUNK_LEN, TRACK_HALF, animatePads } from './terrain.js';
 import { buildSkier } from './skier.js';
 import { SkierBody } from './physics.js';
 import { Input } from './input.js';
@@ -107,7 +106,7 @@ function removeBanner(group) {
 let banners = [];
 function placeBanners() {
   banners.forEach(removeBanner);
-  banners = [makeBanner('DOWNHILL CHALLENGE  ·  START', 1, { bg: '#12304a', fg: '#ffffff', lift: 8 })];
+  banners = [makeBanner('JUST SKI  ·  START', 1, { bg: '#12304a', fg: '#ffffff', lift: 8 })];
   if (save.bestDistance >= 30) banners.push(makeBanner(`★  BEST ${Math.floor(save.bestDistance)} m  ★`, save.bestDistance));
 }
 
@@ -121,6 +120,7 @@ skier.setColors(save.colors);
 scene.add(skier.group);
 
 const input = new Input(canvas);
+input.setSensitivity(save.touchSensitivity);
 let mode = 'menu'; // menu | ready | run | crash | results
 let run = null;
 let accumulator = 0;
@@ -138,11 +138,16 @@ const ui = new UI({
     skier.setColors(colors);
     writeSave(save);
   },
+  sensitivity: (k) => {
+    input.setSensitivity(k);
+    writeSave(save);
+  },
   reset: () => {
-    const colors = save.colors; // resetting scores keeps the penguin's look
+    const { colors, touchSensitivity } = save; // resetting scores keeps the penguin's look and your controls
     clearSave();
     save = defaultSave();
     save.colors = colors;
+    save.touchSensitivity = touchSensitivity;
     writeSave(save);
     newCourse();
     ui.showMenu(save);
@@ -586,17 +591,9 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 
-// load the igloo model before building the first course; without it a plain dome stands in
-try {
-  const gltf = await new GLTFLoader().loadAsync('models/igloo.glb');
-  setIglooModel(gltf.scene);
-} catch (e) {
-  console.warn('Igloo model failed to load; using a plain dome', e);
-}
-
 newCourse();
 ui.showMenu(save);
 requestAnimationFrame(frame);
 
 // handy for debugging from the console
-window.__downhill = { body, get mode() { return mode; }, get terrain() { return terrain; }, get save() { return save; }, get run() { return run; }, sfx, env };
+window.__downhill = { input, body, get mode() { return mode; }, get terrain() { return terrain; }, get save() { return save; }, get run() { return run; }, sfx, env };

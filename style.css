@@ -299,6 +299,9 @@ h2 { margin: 0; font-size: 26px; }
   overflow: hidden;
   background: conic-gradient(#e84a3a, #f5c518, #2fb36b, #1fb5b5, #2f7fd4, #8a5cd0, #e84a3a);
 }
+.pref-value { font-weight: 400; color: var(--ink-soft); margin-left: 6px; }
+.pref-slider input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--accent); touch-action: pan-x; }
+.slider-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
 .swatch.custom.selected { box-shadow: 0 0 0 3px var(--ink); }
 .swatch.custom input { position: absolute; inset: -6px; width: 44px; height: 44px; opacity: 0; cursor: pointer; }
 

@@ -3,7 +3,7 @@
 // (the penguin keeps steering as directed while tucked).
 
 const BLOCKED = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
-const STEER_PX = 60; // drag this far sideways for full lock
+const STEER_PX = 60; // drag this far sideways for full lock (at sensitivity 1)
 const TUCK_HOLD_MS = 250; // a touch held this long means tuck; a quick tap doesn't
 const SWIPE_PX = 40; // in the air, a flick counts as a trick swipe if the finger moves this far...
 const SWIPE_MS = 100; // ...within this long. A steering drag is much slower, so it never qualifies.
@@ -11,6 +11,7 @@ const SWIPE_MS = 100; // ...within this long. A steering drag is much slower, so
 export class Input {
   constructor(canvas) {
     this.keys = new Set();
+    this.steerPx = STEER_PX;
     this.pointers = new Map(); // id -> { startX, x, y, t (when it went down), trail } (trail: recent { t, x, y } samples for swipe speed)
     this.steerId = null; // the pointer that steers
     this.onKeyDown = null;
@@ -83,6 +84,11 @@ export class Input {
     this.swipeArmed = on;
   }
 
+  // 1 is the original feel; lower needs a longer drag for the same turn, higher a shorter one
+  setSensitivity(k) {
+    this.steerPx = STEER_PX / k;
+  }
+
   down(...codes) {
     return codes.some((c) => this.keys.has(c));
   }
@@ -93,7 +99,7 @@ export class Input {
     if (this.down('ArrowLeft', 'KeyA')) s -= 1;
     if (this.down('ArrowRight', 'KeyD')) s += 1;
     const p = this.pointers.get(this.steerId);
-    if (p) s += (p.x - p.startX) / STEER_PX;
+    if (p) s += (p.x - p.startX) / this.steerPx;
     return Math.max(-1, Math.min(1, s));
   }
 
