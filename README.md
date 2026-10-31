@@ -23,7 +23,7 @@ If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` o
 ## How it plays
 
 - **Steer:** drag left and right, or use ←/→ or A/D.
-- **Tuck:** hold a second finger on the screen, or ↓, S or Space. You go faster but turn less sharply.
+- **Tuck:** keep a finger on the screen for a moment (you keep steering while tucked), or hold ↓, S or Space. You go faster but turn less sharply.
 - **One crash ends the run.** Trees, igloos, polar bears, snowmen and penguins all count, and so does falling into a chasm. Now and then a giant snowball rolls across the lane from one side: touch it and you're flattened, but you can jump clear over it.
 - **Chasms** cut right across the valley. Kickers sit on the near edge; hit one fast enough to clear the gap. Red posts mark the stretches with no kicker.
 - **Tricks:** once you're in the air, tap ↑ for a front flip, ↓ for a back flip, ← to spin left or → to spin right. Holding a key instead does its usual job (←/→ steer, ↓ tucks), and steering still works while a trick is running. On a touchscreen, flick in that direction; only a quick flick counts, so a steering drag never sets one off. A trick is a full turn and takes about half a second, so it must be finished before you touch down or you crash. Chain tricks in one jump for a multiplier: the first scores 1x, the second 2x, the third 3x and so on. A key already held at take-off (like the tuck) doesn't start a trick, because the press has to start in the air. Presses during a trick are ignored, except in its last 0.15 s, when one is held and starts the moment the trick ends.
@@ -39,7 +39,7 @@ If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` o
 | `src/physics.js` | Skier physics: gravity, friction, drag, tuck, carving, crashes |
 | `src/tricks.js` | Trick state: durations, points, combo multiplier, finishing before touchdown |
 | `src/skier.js` | Penguin skier model and its animation (lean, tuck, air, wipeout) |
-| `src/input.js` | Keyboard and multi-touch: first finger steers, a second one tucks, flicks in the air are tricks |
+| `src/input.js` | Keyboard and touch: dragging steers, a finger held down tucks, quick flicks in the air are tricks |
 | `src/ui.js` | HUD, start hint and results |
 | `src/scenery.js` | Clouds, distant mountains, snow spray |
 | `src/effects.js` | Coin pickup animation, hazard hit effects |
@@ -53,6 +53,7 @@ If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` o
   - `SLOPE_START`, `SLOPE_END` and `SLOPE_RAMP` in `src/terrain.js` set how steep the hill is and how quickly it steepens.
   - `DRAG`, `TUCK_DRAG` and `MU` in `src/physics.js` set top speed, standing and tucked.
 - **Tricks:** `TRICKS` in `src/tricks.js` sets each trick's duration and base points, `TAP_MS` is how long a key can be held and still count as a trick tap, `BUFFER` is how long before a trick ends a press is held for the next one, and `FORGIVE` is how far through a trick you can be at touchdown and still count it as finished (1 means it must be fully complete).
+- **Touch tuck:** `TUCK_HOLD_MS` in `src/input.js` is how long a finger must stay down before it tucks.
 - **Steering:** `TURN_RATE`, `TUCK_TURN`, `GRIP`, `CARVE_LOSS` (speed lost carving) and `MAX_YAW` in `src/physics.js`.
 - **Chasms:**
   - In `src/terrain.js`, `chasmFor()` sets how often they appear and how wide they are, and `rampsFor()` sets kicker width, count and height.

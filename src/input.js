@@ -1,15 +1,17 @@
 // Keyboard plus touch/mouse on the game canvas. The first finger down steers by how far it
-// has been dragged sideways from where it landed; a second finger held anywhere means tuck.
+// has been dragged sideways from where it landed, and any finger held down for a moment tucks
+// (the penguin keeps steering as directed while tucked).
 
 const BLOCKED = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space']);
 const STEER_PX = 60; // drag this far sideways for full lock
+const TUCK_HOLD_MS = 250; // a touch held this long means tuck; a quick tap doesn't
 const SWIPE_PX = 40; // in the air, a flick counts as a trick swipe if the finger moves this far...
 const SWIPE_MS = 100; // ...within this long. A steering drag is much slower, so it never qualifies.
 
 export class Input {
   constructor(canvas) {
     this.keys = new Set();
-    this.pointers = new Map(); // id -> { startX, x, y, trail } (trail: recent { t, x, y } samples for swipe speed)
+    this.pointers = new Map(); // id -> { startX, x, y, t (when it went down), trail } (trail: recent { t, x, y } samples for swipe speed)
     this.steerId = null; // the pointer that steers
     this.onKeyDown = null;
     this.onKeyUp = null; // (code, heldMs)
@@ -41,7 +43,7 @@ export class Input {
 
     canvas.addEventListener('pointerdown', (e) => {
       canvas.setPointerCapture(e.pointerId);
-      this.pointers.set(e.pointerId, { startX: e.clientX, x: e.clientX, y: e.clientY, trail: [] });
+      this.pointers.set(e.pointerId, { startX: e.clientX, x: e.clientX, y: e.clientY, t: e.timeStamp, trail: [] });
       if (this.steerId === null) this.steerId = e.pointerId;
       this.onPointerDown?.();
     });
@@ -96,6 +98,9 @@ export class Input {
   }
 
   tuck() {
-    return this.pointers.size >= 2 || this.down('ArrowDown', 'KeyS', 'Space');
+    if (this.down('ArrowDown', 'KeyS', 'Space')) return true;
+    const now = performance.now();
+    for (const p of this.pointers.values()) if (now - p.t >= TUCK_HOLD_MS) return true;
+    return false;
   }
 }
