@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Downhill Challenge</title>
+  <meta name="description" content="Ski a penguin down an endless mountain: dodge trees, bears and penguins, and jump the chasms.">
+  <meta name="theme-color" content="#5aa9e6">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Downhill">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- In-run HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-row">
+      <div class="stat"><span class="label">Distance</span><span id="hud-dist" class="value">0 m</span></div>
+      <div class="stat"><span class="label">Speed</span><span id="hud-speed" class="value">0 mph</span></div>
+      <div class="stat"><span class="label">Score</span><span id="hud-score" class="value">0</span></div>
+    </div>
+    <div id="hud-best" class="hud-sub"></div>
+  </div>
+  <div id="hud-tuck">TUCK</div>
+  <button id="btn-end" class="small-btn hidden">End run</button>
+
+  <!-- Start hint, shown during the countdown -->
+  <div id="hint" class="hidden">
+    <div class="hint-touch">Drag left/right to steer · hold a second finger down to tuck</div>
+    <div class="hint-keys">←/→ or A/D to steer · hold ↓, S or Space to tuck</div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Main menu -->
+  <div id="menu" class="overlay">
+    <div class="card">
+      <h1>Downhill <span>Challenge</span></h1>
+      <p class="tag">Ski fast. Dodge everything. Jump the gaps.</p>
+      <div class="pill-row">
+        <div class="pill">🏆 Best <b id="menu-best">0</b></div>
+        <div class="pill">🏁 Furthest <b id="menu-dist">0 m</b></div>
+      </div>
+      <button id="btn-play" class="btn primary">Ski!</button>
+      <div class="howto">
+        <div><b>Steer:</b> drag left/right, or ←/→ and A/D.</div>
+        <div><b>Tuck:</b> hold a second finger on the screen, or ↓, S or Space. Faster, but you turn less sharply.</div>
+        <div>The hill gets steeper the further you go. Turning hard scrubs off speed.</div>
+        <div><b>One crash ends the run.</b> Trees, igloos, polar bears, snowmen and penguins all count.</div>
+        <div><b>Chasms:</b> hit a kicker in front of one at speed to jump it. Miss the kicker or come in slow and you're in. Red posts mark where there's no kicker.</div>
+        <div><b>Score:</b> 1 per metre, 5 per coin, 50 per chasm cleared, plus airtime bonuses.</div>
+        <div>Booster pads speed you up. Ice is fast but slippery. Birds up high slow you down.</div>
+        <div><b>Sound:</b> M or the speaker button to mute.</div>
+      </div>
+      <button id="btn-reset" class="link-btn">Reset scores</button>
+      <div class="credits">Igloo model: “Igloo” by Poly by Google, CC-BY 3.0</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" class="overlay hidden">
+    <div class="card">
+      <h2 id="res-title">Run over</h2>
+      <p id="res-why" class="tag"></p>
+      <div id="res-best-badge" class="badge hidden">NEW BEST!</div>
+      <div class="big-dist" id="res-score">0</div>
+      <table class="res-table">
+        <tr><td>Distance</td><td id="res-dist">0 m</td></tr>
+        <tr><td>Coins</td><td id="res-coins">0</td></tr>
+        <tr><td>Chasms cleared</td><td id="res-chasms">0</td></tr>
+        <tr><td>Airtime bonus</td><td id="res-air">0</td></tr>
+      </table>
+      <div class="pill-row"><div class="pill">🏆 Best <b id="res-best">0</b></div></div>
+      <button id="btn-again" class="btn primary">Ski again</button>
+      <button id="btn-menu" class="btn">Menu</button>
+    </div>
+  </div>
+
+  <button id="btn-mute" class="small-btn" aria-label="Mute sound">🔊</button>
+
+  <script type="module" src="src/main.js"></script>
+  <script>
+    // installable / offline support (service workers need https or localhost)
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
