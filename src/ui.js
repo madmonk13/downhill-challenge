@@ -34,13 +34,19 @@ export class UI {
     $('btn-again').onclick = () => this.h.play();
     $('btn-menu').onclick = () => this.showMenu(this.save);
     $('btn-end').onclick = () => this.h.endRun();
+    $('btn-pause').onclick = () => this.h.pause(true);
+    $('btn-resume').onclick = () => this.h.pause(false);
+    $('btn-pause-end').onclick = () => {
+      this.h.pause(false);
+      this.h.endRun();
+    };
     $('btn-reset').onclick = () => {
       if (confirm('Reset your best score and distance?')) this.h.reset();
     };
   }
 
   show(screen) {
-    for (const id of ['menu', 'results', 'prefs', 'help']) $(id).classList.toggle('hidden', id !== screen);
+    for (const id of ['menu', 'results', 'prefs', 'help', 'pause']) $(id).classList.toggle('hidden', id !== screen);
     this.prefsOpen = screen === 'prefs';
     this.helpOpen = screen === 'help';
   }
@@ -138,6 +144,7 @@ export class UI {
     const playing = mode === 'ready' || mode === 'run' || mode === 'crash';
     $('hud').classList.toggle('hidden', !playing);
     $('btn-end').classList.toggle('hidden', mode !== 'run');
+    $('btn-pause').classList.toggle('hidden', mode !== 'run');
     $('hint').classList.toggle('hidden', mode !== 'ready');
     if (mode !== 'menu') this.show(null);
   }
@@ -163,6 +170,12 @@ export class UI {
 
   resetHud() {
     this.lastScore = -1;
+  }
+
+  // the Paused card covers the game; the in-run buttons step aside while it's up
+  showPause(on) {
+    this.show(on ? 'pause' : null);
+    for (const id of ['btn-pause', 'btn-end']) $(id).classList.toggle('hidden', on);
   }
 
   toast(text) {

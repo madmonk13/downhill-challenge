@@ -18,7 +18,7 @@ Then open http://localhost:5174. (It uses 5174 so it can run alongside Just Sled
 
 Service workers only run on `https://` or `localhost`. On your local network (`http://<your-mac-ip>:5174`) the game still plays, and iOS can still "Add to Home Screen", but it won't work offline and Android won't offer a real install. For the full PWA, serve it over HTTPS (any static host works).
 
-If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` on every change so phones pick it up. Icons are drawn by `tools/make_icons.py` (needs Pillow). They still show Just Sled's sled.
+If you add a file under `src/`, add it to `SHELL` in `sw.js`, and bump `CACHE` on every change so phones pick it up. Icons are drawn by `tools/make_icons.py` (needs Pillow).
 
 ## How it plays
 

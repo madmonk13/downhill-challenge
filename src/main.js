@@ -134,6 +134,7 @@ let crashTimer = 0;
 const ui = new UI({
   play: () => startCourse(),
   endRun: () => (mode === 'run' || mode === 'crash') && endRun(),
+  pause: (on) => setPaused(on),
   colors: (colors) => {
     skier.setColors(colors);
     writeSave(save);
@@ -209,6 +210,20 @@ function endRun() {
   }, save);
 }
 
+// ---------- pause ----------
+let paused = false;
+function setPaused(on) {
+  if (on && (paused || mode !== 'run')) return;
+  if (!on && !paused) return;
+  paused = on;
+  ui.showPause(on);
+  if (!on) ui.setMode(mode); // bring back the in-run buttons
+}
+// leaving the app (switching tabs, locking the phone) pauses a run
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) setPaused(true);
+});
+
 // ---------- sound controls ----------
 const muteBtn = document.getElementById('btn-mute');
 function showMute() {
@@ -242,6 +257,8 @@ input.onKeyUp = (code, heldMs) => {
 
 input.onKeyDown = (code) => {
   if (code === 'KeyM') return toggleMute();
+  if (code === 'KeyP' || code === 'Escape') return setPaused(!paused);
+  if (paused) return;
   if (TRICK_KEYS[code]) {
     if (mode === 'run' && body.airborne && !body.crashed) trickPressedInAir.add(code);
     return;
@@ -569,9 +586,14 @@ let last = performance.now();
 const IDLE_FRAME_MS = 30; // the menu and results only need ~30fps behind the overlay
 function frame(now) {
   requestAnimationFrame(frame);
-  if ((mode === 'menu' || mode === 'results') && now - last < IDLE_FRAME_MS) return;
+  if ((paused || (mode === 'menu' || mode === 'results')) && now - last < IDLE_FRAME_MS) return;
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  if (paused) {
+    sfx.update({ running: false, speed: 0, contact: false, onIce: false, airborne: false, boosting: false });
+    renderer.render(scene, camera);
+    return;
+  }
   time += dt;
 
   if (mode === 'ready') updateReady(dt);
