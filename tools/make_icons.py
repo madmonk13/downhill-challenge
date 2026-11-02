@@ -1,97 +1,86 @@
-"""Draws the Just Ski app icons into icons/ (a penguin skiing down a snowy slope).
+"""Draws the Just Ski app icons into icons/: a penguin skier jumping a chasm under a deep blue sky.
 
 Usage: python3 tools/make_icons.py   (needs Pillow)
 Everything important sits inside the central 80% so the icon also works as a
 maskable icon on Android.
 """
-import math
 import os
 from PIL import Image, ImageDraw
 
 S = 1024  # draw large, then downscale for smooth edges
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icons")
 
-SLOPE = 0.24  # the snow drops this much per pixel to the right
+BLACK, WHITE, ORANGE = (0x23, 0x26, 0x2e), (0xf7, 0xf7, 0xf2), (0xff, 0x9a, 0x2e)
+RED, SKI, GREY = (0xe8, 0x4a, 0x3a), (0x2f, 0x7f, 0xd4), (0x55, 0x5c, 0x68)
+SNOW, SNOW_SHADE = (0xf7, 0xfb, 0xff), (0xc9, 0xdc, 0xee)
 
 
 def lerp(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def snow_y(x):
-    return 600 + x * SLOPE
-
-
-def penguin():
-    """The skier upright on its own layer; (512, 900) is where the boots meet the skis."""
+def skier():
+    """The penguin in the air, side-on and leaning into the jump; skis under its boots."""
     layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    black, white, orange = (0x23, 0x26, 0x2e), (0xf7, 0xf7, 0xf2), (0xff, 0x9a, 0x2e)
-    red, grey = (0xe8, 0x4a, 0x3a), (0x55, 0x5c, 0x68)
-
-    # poles behind, planted back down the hill
-    d.line([(610, 640), (330, 905)], fill=grey, width=16)
-    d.line([(560, 640), (290, 880)], fill=grey, width=16)
-    d.ellipse([300, 880, 360, 920], outline=grey, width=10)
-
-    d.ellipse([400, 540, 640, 880], fill=black)  # body, crouched
-    d.ellipse([470, 610, 635, 870], fill=white)  # belly
-    d.ellipse([430, 870, 530, 915], fill=orange)  # boots
-    d.ellipse([500, 870, 600, 915], fill=orange)
-    d.ellipse([440, 380, 650, 580], fill=black)  # head
-    d.ellipse([500, 420, 650, 560], fill=white)  # face
-    d.polygon([(600, 500), (690, 512), (602, 535)], fill=orange)  # beak
-    # goggles
-    d.rounded_rectangle([505, 445, 655, 495], radius=24, fill=(0x1f, 0xb5, 0xb5), outline=black, width=8)
-    d.line([(525, 462), (560, 462)], fill=(0xc8, 0xf4, 0xf4), width=8)
-    # red bobble hat
-    d.chord([440, 330, 650, 520], 180, 360, fill=red)
-    d.rounded_rectangle([432, 405, 658, 440], radius=16, fill=white)
-    d.ellipse([505, 280, 585, 360], fill=white)
-    # scarf streaming behind
-    d.rounded_rectangle([440, 560, 650, 595], radius=16, fill=red)
-    d.polygon([(450, 570), (300, 520), (290, 560), (450, 595)], fill=red)
-    d.polygon([(300, 520), (250, 540), (290, 560)], fill=red)
-    # flipper holding the pole
-    d.ellipse([560, 610, 660, 690], fill=black)
+    # poles trailing behind
+    d.line([(560, 600), (200, 560)], fill=GREY, width=18)
+    d.line([(600, 620), (240, 610)], fill=GREY, width=18)
+    # skis, tips curled up at the front
+    for y in (850, 878):
+        d.line([(250, y), (760, y)], fill=SKI, width=22)
+        d.line([(760, y), (812, y - 44)], fill=SKI, width=22)
+    d.ellipse([400, 520, 640, 860], fill=BLACK)  # body
+    d.ellipse([470, 590, 635, 850], fill=WHITE)  # belly
+    d.ellipse([420, 815, 540, 870], fill=ORANGE)  # boots
+    d.ellipse([500, 815, 620, 870], fill=ORANGE)
+    d.ellipse([440, 360, 650, 560], fill=BLACK)  # head
+    d.ellipse([500, 400, 650, 540], fill=WHITE)  # face
+    d.polygon([(600, 480), (700, 492), (602, 515)], fill=ORANGE)  # beak
+    d.rounded_rectangle([505, 425, 655, 475], radius=24, fill=(0x1f, 0xb5, 0xb5), outline=BLACK, width=8)  # goggles
+    d.line([(525, 442), (560, 442)], fill=(0xc8, 0xf4, 0xf4), width=8)
+    d.chord([440, 310, 650, 500], 180, 360, fill=RED)  # bobble hat
+    d.rounded_rectangle([432, 385, 658, 420], radius=16, fill=WHITE)
+    d.ellipse([505, 260, 585, 340], fill=WHITE)
+    d.rounded_rectangle([440, 540, 650, 575], radius=16, fill=RED)  # scarf, streaming back
+    d.polygon([(450, 550), (280, 470), (262, 515), (450, 575)], fill=RED)
+    d.ellipse([540, 580, 650, 660], fill=BLACK)  # flipper
     return layer
 
 
 def draw():
     img = Image.new("RGB", (S, S))
     d = ImageDraw.Draw(img)
-    top, bottom = (0x4f, 0xa3, 0xe3), (0xd4, 0xec, 0xff)
+    top, bottom = (0x0f, 0x2a, 0x5c), (0x5f, 0xb8, 0xe8)
     for y in range(S):
-        d.line([(0, y), (S, y)], fill=lerp(top, bottom, y / S))
+        d.line([(0, y), (S, y)], fill=lerp(top, bottom, min(1, y / 760)))
 
-    # mountains and a cloud behind
-    d.polygon([(40, 600), (260, 270), (500, 600)], fill=(0xa9, 0xbf, 0xd6))
-    d.polygon([(195, 365), (260, 270), (322, 360), (290, 385), (260, 355), (225, 385)], fill="white")
-    d.polygon([(460, 640), (770, 230), (1060, 640)], fill=(0x93, 0xab, 0xc6))
-    d.polygon([(690, 335), (770, 230), (848, 335), (808, 360), (770, 330), (730, 365)], fill="white")
-    for cx, cy, r in [(700, 170, 55), (765, 150, 72), (835, 172, 52)]:
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill="white")
+    # a low winter sun and far peaks
+    d.ellipse([110, 150, 290, 330], fill=(0xff, 0xf1, 0xc4))
+    d.polygon([(560, 760), (840, 430), (1100, 760)], fill=(0x3c, 0x6e, 0xa8))
+    d.polygon([(785, 495), (840, 430), (893, 492), (862, 512), (840, 490), (815, 514)], fill=WHITE)
 
-    # snow slope falling to the right, with spray behind the skier
-    d.polygon([(0, snow_y(0)), (S, snow_y(S)), (S, S), (0, S)], fill=(0xf7, 0xfb, 0xff))
-    d.polygon([(0, snow_y(0) + 70), (S, snow_y(S) + 70), (S, snow_y(S) + 92), (0, snow_y(0) + 92)],
-              fill=(0xe4, 0xed, 0xf6))
-    for cx, cy, r in [(215, 640, 34), (170, 610, 26), (135, 640, 20), (250, 600, 18), (110, 600, 12)]:
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(0xf7, 0xfb, 0xff))
+    # the chasm: the run-in rises into a kicker at the near lip, the landing is lower on the right
+    gap_l, gap_r = 330, 680
+    d.rectangle([gap_l - 20, 780, gap_r + 20, S], fill=(0x0b, 0x1c, 0x3a))
+    d.polygon([(gap_l, 760), (gap_l + 60, 830), (gap_l + 30, S), (gap_l, S)], fill=(0x1e, 0x4c, 0x7e))  # walls
+    d.polygon([(gap_r, 860), (gap_r - 50, 920), (gap_r - 25, S), (gap_r, S)], fill=(0x16, 0x3a, 0x66))
+    run_in = [(0, 730), (200, 800), (gap_l, 745)]
+    d.polygon(run_in + [(gap_l, S), (0, S)], fill=SNOW)
+    d.line(run_in, fill=SNOW_SHADE, width=10, joint="curve")
+    d.polygon([(gap_r, 850), (S, 920), (S, S), (gap_r, S)], fill=SNOW)  # landing
+    # red warning posts on the far lip
+    for x, y in [(gap_r + 50, 864), (gap_r + 140, 884)]:
+        d.rectangle([x - 9, y - 90, x + 9, y], fill=(0xd4, 0x2f, 0x2f))
+        d.rectangle([x - 9, y - 60, x + 9, y - 42], fill=WHITE)
 
-    # skis along the slope, tips curled up at the front
-    angle = math.degrees(math.atan(SLOPE))
-    ski = (0x2f, 0x7f, 0xd4)
-    x0, x1 = 290, 760
-    for off in (0, 18):
-        d.line([(x0, snow_y(x0) - 8 + off), (x1, snow_y(x1) - 8 + off)], fill=ski, width=18)
-        tip = (x1 + 45, snow_y(x1) - 40 + off)
-        d.line([(x1, snow_y(x1) - 8 + off), tip], fill=ski, width=18)
+    # speed lines behind the skier
+    for x0, y0, length in [(80, 430, 150), (60, 500, 190), (100, 570, 120)]:
+        d.rounded_rectangle([x0, y0, x0 + length, y0 + 14], radius=7, fill=(0xd8, 0xee, 0xff))
 
-    # the penguin, leaning down the hill and standing on the skis
-    p = penguin().rotate(-angle * 0.8, resample=Image.BICUBIC, center=(512, 900))
-    feet_x = 520
-    img.paste(p, (feet_x - 512, round(snow_y(feet_x) - 5) - 900), p)
+    # the skier high over the gap, nose up
+    p = skier().rotate(12, resample=Image.BICUBIC, center=(512, 600)).resize((660, 660), Image.LANCZOS)
+    img.paste(p, (200, 70), p)
     return img
 
 
