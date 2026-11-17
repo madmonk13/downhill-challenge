@@ -4,7 +4,6 @@
 // pointer or key press.
 
 const MUTE_KEY = 'downhill.muted';
-const COIN_STEPS = [0, 2, 4, 7, 9, 12, 14, 16, 19]; // pentatonic climb for coin streaks
 
 function loadMuted() {
   try {
@@ -18,8 +17,6 @@ export class Sfx {
   constructor() {
     this.ctx = null;
     this.muted = loadMuted();
-    this.combo = 0;
-    this.lastCoin = 0;
     this.lastPull = 0;
     const unlock = () => this.unlock();
     // iOS Safari only unlocks audio on some gesture types, so listen to all of them
@@ -217,20 +214,6 @@ export class Sfx {
   }
 
   // ---------- events ----------
-
-  // Metallic clink: a bright fundamental plus inharmonic bell partials that die fast.
-  // Coins picked up in quick succession climb a pentatonic scale.
-  coin() {
-    if (!this.ready) return;
-    const now = this.ctx.currentTime;
-    this.combo = now - this.lastCoin < 0.6 ? Math.min(this.combo + 1, COIN_STEPS.length - 1) : 0;
-    this.lastCoin = now;
-    const f = 1250 * Math.pow(2, COIN_STEPS[this.combo] / 12);
-    this.tone(f, { type: 'triangle', dur: 0.32, vol: 0.16 });
-    this.tone(f * 2.76, { dur: 0.16, vol: 0.07 });
-    this.tone(f * 5.4, { dur: 0.07, vol: 0.04 });
-    this.tone(f * 1.5, { type: 'triangle', at: 0.05, dur: 0.22, vol: 0.06 });
-  }
 
   // Band snapping forward: a falling twang and a whoosh.
   launch(power) {

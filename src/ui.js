@@ -1,6 +1,5 @@
 // DOM overlays: menu, HUD, the start hint and results.
 
-import { COINS_ENABLED } from './terrain.js';
 import { DEFAULT_COLORS, DEFAULT_SENSITIVITY, SENS_MIN, SENS_MAX } from './save.js';
 
 const $ = (id) => document.getElementById(id);
@@ -193,8 +192,6 @@ export class UI {
     $('res-best-badge').classList.toggle('hidden', !r.newBest);
     $('res-score').textContent = fmt(r.total);
     $('res-dist').textContent = `${fmt(r.distance)} m`;
-    $('res-coins-row').classList.toggle('hidden', !COINS_ENABLED);
-    $('res-coins').textContent = `${fmt(r.coins)} × ${fmt(r.coinValue)} = ${fmt(r.coinPoints)}`;
     $('res-tricks').textContent = fmt(r.tricks);
     $('res-chasms').textContent = `${fmt(r.chasms)} × 50 = ${fmt(r.chasmPoints)}`;
     $('res-air').textContent = fmt(r.air);

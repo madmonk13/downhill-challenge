@@ -3,7 +3,6 @@
 // in chunks ahead of the sled and discarded behind it.
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32, hash1, hash2 } from './rng.js';
 import { buildIgloo, IGLOO_DOME_R, IGLOO_TUNNEL, IGLOO_HEIGHT } from './igloo.js';
 
@@ -47,7 +46,6 @@ export const BIRD_R = 0.8; // collision radius of a bird
 const SNOWBALL_START_CHUNK = 3;
 const SNOWBALL_LIM = TRACK_HALF + 6; // balls roll in from this far out either side, so they cross the whole lane
 const BIRD_WRAP = 110; // flocks cross the course and loop round beyond the banks
-export const COINS_ENABLED = true; // set false to switch coins off: nothing is placed and the UI hides them
 const CHASM_START_CHUNK = 3;
 const CHASM_DEPTH = 28;
 const CHASM_HALF = 70; // chasms cut right across the valley, beyond where you can ski, so there's no way round
@@ -77,43 +75,6 @@ const COLUMN_X = (() => {
 const CELL_Z = CHUNK_LEN / SEG_Z;
 
 const snowMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-// A coin is a gold disc (axis along z) with "10" on both faces. The geometry carries three
-// material groups, so coinMat is an array: [rim, front face, back face].
-const COIN_R = 0.7;
-const COIN_T = 0.14;
-export const coinGeo = mergeGeometries([
-  new THREE.CylinderGeometry(COIN_R, COIN_R, COIN_T, 24, 1, true).rotateX(Math.PI / 2),
-  new THREE.CircleGeometry(COIN_R, 24).translate(0, 0, COIN_T / 2 + 0.002),
-  new THREE.CircleGeometry(COIN_R, 24).rotateY(Math.PI).translate(0, 0, -COIN_T / 2 - 0.002),
-], true);
-const coinFaceTex = (() => {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const ctx = c.getContext('2d');
-  const draw = () => {
-    ctx.fillStyle = '#ffc83a';
-    ctx.fillRect(0, 0, 256, 256);
-    ctx.strokeStyle = '#d99a10'; // raised rim
-    ctx.lineWidth = 16;
-    ctx.beginPath();
-    ctx.arc(128, 128, 112, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = '#8a5600';
-    ctx.font = 'bold 118px Fredoka, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('10', 128, 136);
-  };
-  draw();
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  // the web font may not be ready yet: redraw once it is
-  document.fonts?.load('bold 118px Fredoka').then(() => { draw(); tex.needsUpdate = true; });
-  return tex;
-})();
-const coinFaceMat = new THREE.MeshLambertMaterial({ map: coinFaceTex, emissive: 0x4a3200 });
-export const coinMat = [new THREE.MeshLambertMaterial({ color: 0xe8a916, emissive: 0x7a5200 }), coinFaceMat, coinFaceMat];
 const treeLowGeo = new THREE.ConeGeometry(2.4, 4.5, 6).translate(0, 3.6, 0);
 const treeHighGeo = new THREE.ConeGeometry(1.7, 3.6, 6).translate(0, 6.2, 0);
 const trunkGeo = new THREE.CylinderGeometry(0.35, 0.45, 1.6, 5).translate(0, 0.8, 0);
@@ -1355,21 +1316,7 @@ export class Terrain {
       group.add(sign2);
     }
 
-    // coin patterns
-    const coins = [];
-    const addCoin = (x, y, z, overChasm = false) => {
-      if (!COINS_ENABLED) return;
-      if (!overChasm && this.nearChasm(z)) return;
-      const above = y - this.height(x, z);
-      if (this.obstacleAt(x, z, 0.6, above) || this.penguinAt(x, z, 0.4, above)) return; // no coins buried in hazards
-      const mesh = new THREE.Mesh(coinGeo, coinMat);
-      mesh.position.set(x, y, z);
-      mesh.castShadow = true;
-      group.add(mesh);
-      coins.push({ mesh, collected: false, attract: false });
-    };
-
-    // kicker ramps, each with a coin arc over the landing
+    // kicker ramps
     for (const r of this.rampsFor(ci)) {
       const runout = r.chasm ? 0 : RAMP_DROP;
       const rg = new THREE.PlaneGeometry(r.w + 2, r.len + runout, Math.ceil((r.w + 2) / 1.5), 16);
@@ -1396,28 +1343,12 @@ export class Terrain {
         pole.position.set(x, this.meshHeight(x, z) - 0.08, z);
         group.add(pole);
       }
-      if (r.chasm) {
-        this.chasmCoins(r, addCoin);
-        continue;
-      }
-      // one coin hanging at the top of the jump
-      const apexZ = r.lip + 18;
-      addCoin(r.x, this.height(r.x, apexZ) + 3.5 + r.h, apexZ);
-    }
-    // single coins scattered over the lane
-    if (ci >= 0) {
-      const n = ci === 0 ? 2 : 3 + Math.floor(rand() * 3);
-      for (let k = 0; k < n; k++) {
-        const x = (rand() * 2 - 1) * (TRACK_HALF - 3);
-        const z = z0 + 8 + rand() * (CHUNK_LEN - 16);
-        addCoin(x, this.height(x, z) + 1.0, z);
-      }
     }
 
     if (chasm) this.chasmMarkers(chasm, group, disposables);
 
     this.scene.add(group);
-    return { ci, group, coins, disposables };
+    return { ci, group, disposables };
   }
 
   // Warning signs well ahead of a chasm, and a row of red posts along its near edge
@@ -1446,24 +1377,6 @@ export class Terrain {
     });
     group.add(posts);
     disposables.push(posts);
-  }
-
-  // One coin over the middle of a chasm, on the path of a typical jump off the kicker: a bonus for clearing it.
-  chasmCoins(r, addCoin) {
-    const lip = r.lip - 1e-3;
-    const y0 = this.height(r.x, lip);
-    const slope = (y0 - this.height(r.x, lip - 0.6)) / 0.6;
-    const mid = (r.chasm.z0 + r.chasm.z1) / 2;
-    const speed = 19;
-    let z = lip, y = y0 + 0.7, vz = speed / Math.hypot(1, slope), vy = vz * slope;
-    while (z < mid) {
-      const dt = 0.02;
-      vy -= 12 * dt;
-      z += vz * dt;
-      y += vy * dt;
-      if (y < this.surface(r.x, z) + 0.7) return;
-    }
-    addCoin(r.x, y, z, true);
   }
 
   iceGeometry(p, rand) {

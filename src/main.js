@@ -7,7 +7,7 @@ import { UI } from './ui.js';
 import { loadSave, writeSave, clearSave, defaultSave } from './save.js';
 import { Mountains, Clouds, Spray } from './scenery.js';
 import { Environment } from './environment.js';
-import { CoinFx, HazardFx } from './effects.js';
+import { HazardFx } from './effects.js';
 import { Sfx } from './audio.js';
 import { Tricks, TRICK_KEYS, TAP_MS } from './tricks.js';
 
@@ -17,7 +17,6 @@ const START_Z = -4; // the skier waits in the start gate here
 const PUSH_OFF = 5; // m/s out of the gate
 const COUNT_STEP = 0.6; // seconds per countdown beat
 const CRASH_TIME = 2.2; // seconds to watch the wipeout before the results
-const COIN_POINTS = 10;
 const CHASM_POINTS = 50;
 const CRASH_TEXT = {
   tree: 'Timber!', igloo: 'Wipeout!', bear: 'Wipeout!', snowman: 'Wipeout!', penguin: 'Sorry!', chasm: 'Into the chasm!',
@@ -49,7 +48,6 @@ const mountains = new Mountains(scene);
 const clouds = new Clouds(scene);
 const env = new Environment(scene, { hemi, sun, clouds });
 const spray = new Spray(scene);
-const coinFx = new CoinFx(scene);
 const hazardFx = new HazardFx(scene, () => terrain);
 const sfx = new Sfx();
 
@@ -170,7 +168,7 @@ function newCourse() {
 
 function startCourse() {
   newCourse();
-  run = { coins: 0, air: 0, tricks: 0, chasms: 0, maxZ: 0, still: 0, stagnant: 0, time: 0, score: 0 };
+  run = { air: 0, tricks: 0, chasms: 0, maxZ: 0, still: 0, stagnant: 0, time: 0, score: 0 };
   tricks.reset();
   accumulator = 0;
   steerSmooth = 0;
@@ -190,7 +188,7 @@ function go() {
 }
 
 function score(r) {
-  return Math.floor(Math.max(0, r.maxZ)) + r.coins * COIN_POINTS + r.air + r.tricks + r.chasms * CHASM_POINTS;
+  return Math.floor(Math.max(0, r.maxZ)) + r.air + r.tricks + r.chasms * CHASM_POINTS;
 }
 
 function endRun() {
@@ -204,7 +202,7 @@ function endRun() {
   writeSave(save);
   sfx.runEnd(newBest);
   ui.showResults({
-    distance, coins: run.coins, coinValue: COIN_POINTS, coinPoints: run.coins * COIN_POINTS, air: run.air, tricks: run.tricks,
+    distance, air: run.air, tricks: run.tricks,
     chasms: run.chasms, chasmPoints: run.chasms * CHASM_POINTS, total, newBest,
     crash: body.crashed?.kind ?? null,
   }, save);
@@ -343,7 +341,6 @@ function updateRun(dt) {
       run.stagnant += dt;
     }
     run.still = body.speed < 0.6 && !body.airborne ? run.still + dt : 0;
-    collectCoins(dt);
     run.score = score(run);
     ui.updateHud(run, body, save.best);
     // stuck: stopped dead, or shuffling about without getting anywhere
@@ -411,29 +408,6 @@ function onLanding({ impact, airTime }) {
     ui.toast('Oof!');
   } else if (airTime > 0.8) {
     ui.toast('Nice Landing!');
-  }
-}
-
-function collectCoins(dt) {
-  const ci = Math.floor(body.pos.z / CHUNK_LEN);
-  const sx = body.pos.x, sy = body.pos.y + 0.8, sz = body.pos.z;
-  const pickR2 = 1.8 * 1.8;
-  for (const chunk of terrain.chunks.values()) {
-    const near = Math.abs(chunk.ci - ci) <= 1;
-    for (const c of chunk.coins) {
-      if (c.collected) continue;
-      const m = c.mesh.position;
-      c.mesh.rotation.y += dt * 3;
-      if (!near) continue;
-      const dx = sx - m.x, dy = sy - m.y, dz = sz - m.z;
-      if (dx * dx + dy * dy + dz * dz < pickR2) {
-        c.collected = true;
-        c.mesh.visible = false;
-        coinFx.collect(m, body);
-        sfx.coin();
-        run.coins++;
-      }
-    }
   }
 }
 
@@ -606,7 +580,6 @@ function frame(now) {
   });
   animatePads(dt);
   terrain.animate(dt);
-  coinFx.update(dt, body);
   hazardFx.update(dt);
   updateSkierVisual(dt);
   updateCamera(dt);
