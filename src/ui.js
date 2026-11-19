@@ -45,6 +45,7 @@ export class UI {
   }
 
   show(screen) {
+    if (screen !== 'results') $('trouble').classList.add('hidden');
     for (const id of ['menu', 'results', 'prefs', 'help', 'pause']) $(id).classList.toggle('hidden', id !== screen);
     this.prefsOpen = screen === 'prefs';
     this.helpOpen = screen === 'help';
@@ -77,6 +78,11 @@ export class UI {
     }
     $('btn-prefs').onclick = () => this.showPrefs();
     $('btn-help').onclick = () => this.show('help');
+    $('btn-trouble-close').onclick = () => $('trouble').classList.add('hidden');
+    $('btn-trouble-settings').onclick = () => {
+      $('trouble').classList.add('hidden');
+      this.showPrefs();
+    };
     $('btn-help-close').onclick = () => this.showMenu(this.save);
     $('btn-prefs-done').onclick = () => this.showMenu(this.save);
     $('btn-prefs-reset').onclick = () => {
@@ -175,6 +181,15 @@ export class UI {
   showPause(on) {
     this.show(on ? 'pause' : null);
     for (const id of ['btn-pause', 'btn-end']) $(id).classList.toggle('hidden', on);
+  }
+
+  // After a very short run, point a touchscreen player at the steering sensitivity: at most once
+  // per visit, and never once they've moved the slider off its default.
+  offerSettings(save) {
+    if (this.troubleShown || !matchMedia('(pointer: coarse)').matches) return;
+    if (save.touchSensitivity !== DEFAULT_SENSITIVITY) return;
+    this.troubleShown = true;
+    $('trouble').classList.remove('hidden');
   }
 
   toast(text) {

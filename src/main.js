@@ -17,6 +17,7 @@ const START_Z = -4; // the skier waits in the start gate here
 const PUSH_OFF = 5; // m/s out of the gate
 const COUNT_STEP = 0.6; // seconds per countdown beat
 const CRASH_TIME = 2.2; // seconds to watch the wipeout before the results
+const SHORT_RUN = 150; // crashing out before this many metres offers the steering setting
 const CHASM_POINTS = 50;
 const CRASH_TEXT = {
   tree: 'Timber!', igloo: 'Wipeout!', bear: 'Wipeout!', snowman: 'Wipeout!', penguin: 'Sorry!', chasm: 'Into the chasm!',
@@ -206,6 +207,7 @@ function endRun() {
     chasms: run.chasms, chasmPoints: run.chasms * CHASM_POINTS, total, newBest,
     crash: body.crashed?.kind ?? null,
   }, save);
+  if (body.crashed && distance < SHORT_RUN) ui.offerSettings(save); // not when the player ended it themselves
 }
 
 // ---------- pause ----------
